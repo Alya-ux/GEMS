@@ -1,0 +1,254 @@
+﻿@page "/register"
+@layout MainLayout
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+
+<div class="registration-container">
+    <div class="form-header">
+        <h2 class="form-title">
+            <i class="fas fa-user-plus me-2"></i>Register New User
+        </h2>
+    </div>
+
+    <EditForm Model="@newUser" OnValidSubmit="@HandleSubmit">
+        <DataAnnotationsValidator />
+        <div class="form-card">
+            <!-- Search User -->
+            <div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-search me-2"></i>Search Existing User
+                </label>
+                <div class="search-container">
+                    <input type="text" class="form-control"
+                           @bind="@searchTerm"
+                           @oninput="@PerformLookup"
+                           placeholder="Enter name, email or ID..." />
+                    @if (filteredUsers.Count > 0)
+                    {
+                        <div class="dropdown-results">
+                            @foreach (var user in filteredUsers)
+                            {
+                                <div class="dropdown-item" @onclick="@(() => SelectUser(user))">
+                                    <div class="user-id-badge">ID: @user.UserId</div>
+                                    <div>@user.Name</div>
+                                    <small class="text-muted">@user.Email</small>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- User Details -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-id-card me-2"></i>User ID
+                    </label>
+                    <InputText class="form-control" @bind-Value="@newUser.UserId" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-user me-2"></i>Name
+                    </label>
+                    <InputText class="form-control" @bind-Value="@newUser.Name" />
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-envelope me-2"></i>Email
+                </label>
+                <InputText class="form-control" @bind-Value="@newUser.Email" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-user-tag me-2"></i>Role
+                </label>
+                <InputSelect class="form-select" @bind-Value="@newUser.Role">
+                    <option value="">-- Select Role --</option>
+                    <option value="1stAdmin">1st Admin</option>
+                    <option value="2ndAdmin">2nd Admin</option>
+                    <option value="User">User</option>
+                </InputSelect>
+            </div>
+
+            <button type="submit" class="submit-btn btn-primary">
+                <i class="fas fa-user-check me-2"></i>Register User
+            </button>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    private RegisterModel newUser = new();
+    private string searchTerm = string.Empty;
+    private List<LookupUser> filteredUsers = new();
+
+    private List<LookupUser> allUsers = new()
+    {
+        new LookupUser { UserId = "EMP1001", Name = "Ali Bin Ahmad", Email = "ali@example.com" },
+        new LookupUser { UserId = "EMP1002", Name = "Sarah Tan", Email = "sarah@example.com" },
+        new LookupUser { UserId = "EMP1003", Name = "John Lee", Email = "johnlee@example.com" },
+        new LookupUser { UserId = "EMP1004", Name = "Emma Wong", Email = "emma.wong@example.com" },
+        new LookupUser { UserId = "EMP1005", Name = "Michael Chen", Email = "michael@example.com" },
+        new LookupUser { UserId = "EMP1006", Name = "Lisa Koh", Email = "lisa.koh@example.com" }
+    };
+
+    private void PerformLookup(ChangeEventArgs e)
+    {
+        searchTerm = e.Value?.ToString() ?? string.Empty;
+        filteredUsers = allUsers
+            .Where(u => u.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                       u.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                       u.UserId.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            .Take(5)
+            .ToList();
+    }
+
+    private void SelectUser(LookupUser user)
+    {
+        newUser.UserId = user.UserId;
+        newUser.Name = user.Name;
+        newUser.Email = user.Email;
+        filteredUsers.Clear();
+        searchTerm = string.Empty;
+    }
+
+    private void HandleSubmit()
+    {
+        // TODO: Save user to database
+        Console.WriteLine($"Registered: {newUser.Name} ({newUser.Email}) as {newUser.Role}");
+        Navigation.NavigateTo("/users");
+    }
+
+    public class RegisterModel
+    {
+        public string UserId { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+    }
+
+    public class LookupUser
+    {
+        public string UserId { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+    }
+}
+
+<style>
+    .registration-container {
+        max-width: 650px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+
+    .form-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .form-title {
+        font-size: 1.75rem;
+        font-weight: 600;
+        color: #2d3748;
+        margin: 0;
+        display: flex;
+        align-items: center;
+    }
+
+    .form-card {
+        background: #ffffff;
+        border-radius: 8px;
+        padding: 2rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-row {
+        display: flex;
+        gap: 1rem;
+    }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+    .form-label {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: #4a5568;
+    }
+
+    .form-control, .form-select {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        background-color: #fff;
+    }
+
+    .search-container {
+        position: relative;
+    }
+
+    .dropdown-results {
+        position: absolute;
+        width: 100%;
+        max-height: 200px;
+        overflow-y: auto;
+        background: #fff;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        z-index: 10;
+        margin-top: 0.25rem;
+    }
+
+    .dropdown-item {
+        padding: 0.75rem;
+        cursor: pointer;
+    }
+
+        .dropdown-item:hover {
+            background-color: #f8f9fa;
+        }
+
+    .user-id-badge {
+        font-size: 0.7rem;
+        background: #e9ecef;
+        color: #495057;
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+        display: inline-block;
+        margin-bottom: 0.3rem;
+    }
+
+    .submit-btn {
+        width: 100%;
+        padding: 0.75rem;
+        background-color: #0d6efd;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+    }
+
+        .submit-btn:hover {
+            background-color: #0b5ed7;
+        }
+
+    .text-muted {
+        color: #6c757d;
+        font-size: 0.85rem;
+    }
+</style>

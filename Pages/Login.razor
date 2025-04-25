@@ -1,0 +1,116 @@
+﻿@page "/"
+@layout LoginLayout
+@using System.ComponentModel.DataAnnotations
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<EditForm Model="@loginModel" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <div class="login-layout">
+        <div class="login-form">
+            <div style="text-align: center; margin: 5px;">
+                <img src="/images/Logo2.png" alt="Logo" style="max-width: 100px; height: auto;" />
+            </div>
+            <div class="text">LOGIN</div>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="error-message">@errorMessage</div>
+            }
+
+            <div class="field">
+                <div class="fa fa-envelope"></div>
+                <InputText id="email" @bind-Value="loginModel.Email" placeholder="Email" class="input-field" />
+            </div>
+            <ValidationMessage For="@(() => loginModel.Email)" />
+
+            <div class="field">
+                <div class="fa fa-lock"></div>
+                <InputText id="password" @bind-Value="loginModel.Password" type="@PasswordInputType" placeholder="Password" class="input-field" />
+                <span id="password" @onclick="TogglePasswordVisibility" style="color: white; position: absolute; right: 15px; top: 50%; transform: translateY(-50%); cursor: pointer;">
+                    <i class="fa-regular @(IsPasswordVisible ? "fa-eye" : "fa-eye-slash")"></i>
+                </span>
+            </div>
+            <ValidationMessage For="@(() => loginModel.Password)" />
+
+            <button type="submit">LOGIN</button>
+
+            <div class="link">
+                <a href="forgot-password">Forgot Password?</a>
+            </div>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    private LoginModel loginModel = new();
+    private string? errorMessage;
+    private bool IsPasswordVisible { get; set; } = false;
+    private string PasswordInputType => IsPasswordVisible ? "text" : "password";
+
+    private void TogglePasswordVisibility() => IsPasswordVisible = !IsPasswordVisible;
+
+    private List<User> users = new()
+    {
+        new User { Email = "admin1@example.com", Password = "admin123", Role = "1stAdmin" },
+        new User { Email = "admin2@example.com", Password = "admin456", Role = "2ndAdmin" },
+        new User { Email = "user@example.com", Password = "user123", Role = "User" }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var role = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "userRole");
+        if (!string.IsNullOrWhiteSpace(role))
+        {
+            NavigateToRoleDashboard(role);
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        var foundUser = users.FirstOrDefault(u =>
+            u.Email.Equals(loginModel.Email, StringComparison.OrdinalIgnoreCase) &&
+            u.Password == loginModel.Password);
+
+        if (foundUser != null)
+        {
+            errorMessage = null;
+
+            // Save login state
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "userRole", foundUser.Role);
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "userEmail", foundUser.Email);
+
+            NavigateToRoleDashboard(foundUser.Role);
+        }
+        else
+        {
+            errorMessage = "Invalid email or password. Please try again.";
+        }
+    }
+
+    private void NavigateToRoleDashboard(string role)
+    {
+        if (role == "1stAdmin")
+            NavigationManager.NavigateTo("/dashboard/firstadmin");
+        else if (role == "2ndAdmin")
+            NavigationManager.NavigateTo("/dashboard/secondadmin");
+        else
+            NavigationManager.NavigateTo("/dashboard/user");
+    }
+
+    public class LoginModel
+    {
+        [Required(ErrorMessage = "Email or phone is required")]
+        public string? Email { get; set; }
+
+        [Required(ErrorMessage = "Password is required")]
+        public string? Password { get; set; }
+    }
+
+    public class User
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+    }
+}

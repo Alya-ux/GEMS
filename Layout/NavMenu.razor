@@ -1,0 +1,90 @@
+﻿<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid d-flex align-items-center justify-content-between">
+        <a class="navbar-brand d-flex flex-column align-items-start" href="">
+            <div class="d-flex align-items-center">
+                <img src="/images/Logo2.png" style="height:33px; margin-right: 3px;" alt="Logo" />
+                <span>GEMS</span>
+            </div>
+            <small class="text-muted" style="font-size: 0.83rem; margin-top: -2px;">Grill Entrance Management System</small>
+        </a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Dashboard
+            </NavLink>
+        </div>
+
+        <!-- User Management Dropdown - Fixed Version -->
+        <div class="nav-item px-3">
+            <div class="nav-link dropdown-toggle" @onclick="ToggleUserManagement">
+                <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span>
+                <span>User Management</span>
+                
+            </div>
+            @if (showUserManagement)
+            {
+                <div class="dropdown-submenu">
+                    <NavLink class="nav-link submenu-item" href="users">
+                        <span class="bi bi-list-ul-nav-menu" aria-hidden="true"></span> User List
+                    </NavLink>
+                    <NavLink class="nav-link submenu-item" href="register">
+                        <span class="bi bi-person-plus-nav-menu" aria-hidden="true"></span> Register New User
+                    </NavLink>
+                </div>
+            }
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="reports">
+                <span class="bi bi-file-earmark-bar-graph-fill-nav-menu" aria-hidden="true"></span> Reports
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="settings">
+                <span class="bi bi-gear-fill-nav-menu" aria-hidden="true"></span> System Settings
+            </NavLink>
+        </div>
+        <div class="nav-item px-3 mt-auto">
+            <a class="nav-link text-danger" href="/" @onclick="Logout">
+                <span class="bi bi-box-arrow-right-nav-menu" aria-hidden="true"></span> Logout
+            </a>
+        </div>
+    </nav>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+    private bool showUserManagement = false;
+    [Inject] private NavigationManager Navigation { get; set; }
+    [Inject] private IJSRuntime JSRuntime { get; set; }
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+
+    private void ToggleUserManagement()
+    {
+        showUserManagement = !showUserManagement;
+    }
+
+    private async Task Logout()
+    {
+        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "userRole");
+        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "userEmail");
+        Navigation.NavigateTo("/", forceLoad: true);
+    }
+}
+
+
+
+    

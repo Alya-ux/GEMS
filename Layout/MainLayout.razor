@@ -1,0 +1,275 @@
+﻿@inherits LayoutComponentBase
+@inject ProfilePictureService ProfilePictureService
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+
+<div class="page" @onclick="CloseDropdowns">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <!-- Top Bar -->
+        <div class="top-row px-4 d-flex justify-content-between align-items-center">
+            <!-- Search -->
+            <input type="text" class="form-control" placeholder="Search..." style="max-width: 300px;" />
+
+            <!-- Icons + Profile -->
+            <div class="d-flex align-items-center gap-3">
+                <!-- Notification Icon -->
+                <i class="fas fa-bell"></i>
+
+                <!-- Theme Toggle -->
+                <div class="theme-toggle" @onclick:stopPropagation>
+                    <button class="btn btn-link p-0" @onclick="ToggleThemeDropdown">
+                        <i class="@GetThemeIcon(currentTheme) fs-5"></i>
+                        <span class="theme-text">@GetThemeLabel(currentTheme)</span>
+                    </button>
+
+                    @if (showThemeDropdown)
+                    {
+                        <div class="theme-dropdown-menu shadow">
+                            <div class="theme-dropdown-item" @onclick="@(() => ChangeTheme("light"))">
+                                <i class="fas fa-sun me-2 text-warning"></i> Light
+                            </div>
+                            <div class="theme-dropdown-item" @onclick="@(() => ChangeTheme("dark"))">
+                                <i class="fas fa-moon me-2 text-info"></i> Dark
+                            </div>
+                            <div class="theme-dropdown-item" @onclick="@(() => ChangeTheme("auto"))">
+                                <i class="fas fa-adjust me-2 text-secondary"></i> Auto
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Profile -->
+                <img src="@ProfilePictureService.ProfilePictureUrl"
+                     class="profile-picture"
+                     @onclick="ToggleProfileDropdown" />
+
+                <span class="dropdown-trigger" @onclick="ToggleProfileDropdown">
+                    @userName <i class="fas fa-chevron-down"></i>
+                </span>
+
+                @if (isProfileDropdownOpen)
+                {
+                    <div class="profile-dropdown-menu show">
+                        <a class="dropdown-item" href="/account/editprofile">
+                            <i class="fas fa-user-edit me-2"></i>Edit Profile
+                        </a>
+                        <a class="dropdown-item" href="/changePassword">
+                            <i class="fas fa-key me-2"></i>Change Password
+                        </a>
+                        <a class="dropdown-item text-danger" @onclick="Logout" style="cursor: pointer;">
+                            <i class="fas fa-sign-out-alt me-2"></i>Logout
+                        </a>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+<style>
+    /* Profile Styles */
+    .profile-picture {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+        cursor: pointer;
+    }
+
+    .dropdown-trigger {
+        cursor: pointer;
+    }
+
+    .profile-dropdown-menu {
+        position: absolute;
+        top: 70px;
+        right: 20px;
+        background-color: var(--bs-body-bg);
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.5rem;
+        padding: 0.5rem;
+        z-index: 999;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .dropdown-item {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        color: var(--bs-body-color);
+        text-decoration: none;
+    }
+
+        .dropdown-item:hover {
+            background-color: var(--bs-tertiary-bg);
+        }
+
+    /* Theme Toggle Styles */
+    .theme-toggle {
+        position: relative;
+        display: inline-block;
+        height: 100px;
+    }
+
+        .theme-toggle button {
+            background: none;
+            border: none;
+            color: var(--bs-body-color);
+            display: flex;
+            align-items: center;
+            padding: 0.5rem;
+        }
+
+    .theme-text {
+        margin-left: 0.5rem;
+        display: none;
+    }
+
+    @@media (min-width: 992px) {
+        .theme-text {
+            display: inline;
+        }
+    }
+
+    .theme-dropdown-menu {
+        position: absolute;
+        right: 0;
+        top: 100%;
+        background-color: var(--bs-body-bg);
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.375rem;
+        padding: 0.5rem 0;
+        z-index: 1000;
+        min-width: 120px;
+    }
+
+    .theme-dropdown-item {
+        padding: 0.25rem 1rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+    }
+
+        .theme-dropdown-item:hover {
+            background-color: var(--bs-tertiary-bg);
+        }
+
+    /* Theme Variables */
+    :root[data-bs-theme="dark"] {
+        --bs-body-bg: #121212;
+        --bs-body-color: #ffffff;
+        --bs-border-color: #333333;
+        --bs-tertiary-bg: #1e1e1e;
+    }
+
+    :root[data-bs-theme="light"] {
+        --bs-body-bg: #ffffff;
+        --bs-body-color: #000000;
+        --bs-border-color: #dee2e6;
+        --bs-tertiary-bg: #f8f9fa;
+    }
+</style>
+
+@code {
+    private string? userName;
+    private bool isProfileDropdownOpen = false;
+    private bool showThemeDropdown = false;
+    private string currentTheme = "light";
+
+    protected override async Task OnInitializedAsync()
+    {
+        userName = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "userEmail");
+        currentTheme = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "theme") ?? "auto";
+        await ApplyTheme(currentTheme);
+        ProfilePictureService.OnProfilePictureChanged += StateHasChanged;
+    }
+
+    private void ToggleProfileDropdown()
+    {
+        isProfileDropdownOpen = !isProfileDropdownOpen;
+        showThemeDropdown = false;
+    }
+
+    private void ToggleThemeDropdown()
+    {
+        showThemeDropdown = !showThemeDropdown;
+        isProfileDropdownOpen = false;
+    }
+
+    private void CloseDropdowns()
+    {
+        showThemeDropdown = false;
+        isProfileDropdownOpen = false;
+    }
+
+    private async Task ChangeTheme(string theme)
+    {
+        currentTheme = theme;
+        showThemeDropdown = false;
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", "theme", theme);
+        await ApplyTheme(theme);
+        StateHasChanged();
+    }
+
+    private async Task ApplyTheme(string theme)
+    {
+        try
+        {
+            if (theme == "auto")
+            {
+                var prefersDark = await JSRuntime.InvokeAsync<bool>("eval",
+                    "(window.matchMedia('(prefers-color-scheme: dark)').matches)");
+                await JSRuntime.InvokeVoidAsync("document.documentElement.setAttribute",
+                    "data-bs-theme", prefersDark ? "dark" : "light");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("document.documentElement.setAttribute",
+                    "data-bs-theme", theme);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error applying theme: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("document.documentElement.setAttribute",
+                "data-bs-theme", "light");
+        }
+    }
+
+    private string GetThemeIcon(string theme)
+    {
+        return theme switch
+        {
+            "dark" => "fas fa-moon",
+            "light" => "fas fa-sun",
+            "auto" => "fas fa-adjust",
+            _ => "fas fa-sun",
+        };
+    }
+
+    private string GetThemeLabel(string theme)
+    {
+        return theme switch
+        {
+            "dark" => "Dark",
+            "light" => "Light",
+            "auto" => "Auto",
+            _ => "Light",
+        };
+    }
+
+    private async Task Logout()
+    {
+        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "userRole");
+        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "userEmail");
+        Navigation.NavigateTo("/");
+    }
+}

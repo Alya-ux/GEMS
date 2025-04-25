@@ -1,0 +1,212 @@
+﻿@page "/users"
+@layout MainLayout
+@inject NavigationManager Navigation
+
+<div class="user-list-container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="page-title mb-0">User List</h3>
+        <button class="btn btn-primary register-btn" @onclick="NavigateToRegister">
+            <i class="fas fa-user-plus me-1"></i>Register
+        </button>
+    </div>
+
+    <div class="search-filter-bar mb-3">
+        <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" class="form-control"
+                   placeholder="Search users..." @bind="searchTerm" />
+        </div>
+        <select class="form-select" @bind="roleFilter" style="width:150px">
+            <option value="">All Roles</option>
+            <option value="1stAdmin">1st Admin</option>
+            <option value="2ndAdmin">2nd Admin</option>
+            <option value="User">User</option>
+        </select>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th style="width:90px">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var user in filteredUsers)
+                {
+                    <tr>
+                        <td>@user.UserId</td>
+                        <td>@user.Name</td>
+                        <td>@user.Email</td>
+                        <td>
+                            <span class="badge @GetRoleBadgeClass(user.Role)">
+                                @GetRoleDisplay(user.Role)
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge @(user.IsActive ? "bg-success" : "bg-danger")">
+                                @(user.IsActive ? "Active" : "Inactive")
+                            </span>
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-light border" title="Edit" @onclick="@(() => EditUser(user.Id))">
+                                    <i class="fas fa-edit text-primary"></i>
+                                </button>
+                                <button class="btn btn-sm btn-light border" title="@(user.IsActive ? "Deactivate" : "Activate")"
+                                        @onclick="@(() => ToggleUserStatus(user.Id))">
+                                    <i class="fas @(user.IsActive ? "fa-user-slash text-danger" : "fa-user-check text-success")"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private List<User> users = new List<User>
+    {
+        new User { Id = 1, UserId = "EMP1001", Name = "Ali Bin Ahmad", Email = "ali@example.com", Role = "1stAdmin", IsActive = true },
+        new User { Id = 2, UserId = "EMP1002", Name = "Sarah Tan", Email = "sarah@example.com", Role = "2ndAdmin", IsActive = true },
+        new User { Id = 3, UserId = "EMP1003", Name = "John Lee", Email = "johnlee@example.com", Role = "User", IsActive = true }
+    };
+
+    private List<User> filteredUsers = new();
+    private string searchTerm = string.Empty;
+    private string roleFilter = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        filteredUsers = users;
+    }
+
+    private void NavigateToRegister()
+    {
+        Navigation.NavigateTo("/register");
+    }
+
+    private void EditUser(int userId)
+    {
+        Navigation.NavigateTo($"/users/edit/{userId}");
+    }
+
+    private void ToggleUserStatus(int userId)
+    {
+        var user = users.FirstOrDefault(u => u.Id == userId);
+        if (user != null)
+        {
+            user.IsActive = !user.IsActive;
+        }
+    }
+
+    private string GetRoleBadgeClass(string role)
+    {
+        return role switch
+        {
+            "1stAdmin" => "bg-primary",
+            "2ndAdmin" => "bg-info text-dark",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetRoleDisplay(string role)
+    {
+        return role switch
+        {
+            "1stAdmin" => "1st Admin",
+            "2ndAdmin" => "2nd Admin",
+            _ => "User"
+        };
+    }
+
+    public class User
+    {
+        public int Id { get; set; }
+        public string UserId { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+    }
+}
+
+<style>
+    .user-list-container {
+        padding: 1.5rem;
+        background-color: #fff;
+        border-radius: 0.5rem;
+    }
+
+    .page-title {
+        font-size: 1.5rem;
+        font-weight: 500;
+        color: #212529;
+    }
+
+    .register-btn {
+        width: 200px;
+        padding: 0.375rem 0.75rem;
+    }
+
+    .btn-light {
+        background-color: white !important;
+        border-color: #dee2e6 !important;
+    }
+
+        .btn-light:hover {
+            background-color: #f8f9fa !important;
+        }
+
+    .search-filter-bar {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .search-box {
+        position: relative;
+        flex: 1;
+        max-width: 400px;
+    }
+
+        .search-box i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c757d;
+        }
+
+        .search-box input {
+            padding-left: 35px;
+        }
+
+    .table th {
+        font-weight: 500;
+        background-color: #f8f9fa;
+    }
+
+    .badge {
+        font-weight: 500;
+        padding: 0.35em 0.65em;
+        font-size: 0.85em;
+    }
+
+    .btn-xs {
+        padding: 0.1rem 0.35rem;
+        font-size: 0.75rem;
+        line-height: 1.2;
+    }
+
+    .fa-xs {
+        font-size: 0.75em;
+    }
+</style>

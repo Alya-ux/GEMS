@@ -221,7 +221,7 @@ code {
     }
 }
 
-button {
+.btn-login {
     margin-top: 30px;
     height: 50px;
     width: 100%;
@@ -235,7 +235,7 @@ button {
     letter-spacing: 1px;
 }
 
-    button:hover {
+    .btn-login:hover {
         color: #339933;
         border: 1px solid #339933;
         box-shadow: 0 0 5px rgba(0,255,0,.3), 0 0 10px rgba(0,255,0,.2), 0 0 15px rgba(0,255,0,.1), 0 2px 0 black;

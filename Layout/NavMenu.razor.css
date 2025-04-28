@@ -173,3 +173,20 @@
     .nav-link.active {
         background-color: rgba(255,255,255,0.37) !important;
     }
+
+/* Hide nav menu by default on small screens */
+@media (max-width: 768px) {
+    .nav-scrollable {
+        display: none;
+    }
+
+        .nav-scrollable.show {
+            display: block;
+            position: absolute;
+            top: 4rem; /* Same height as your top nav */
+            left: 0;
+            width: 100%;
+            background-color: rgb(33, 38, 49); /* Match your top bar */
+            z-index: 99;
+        }
+}

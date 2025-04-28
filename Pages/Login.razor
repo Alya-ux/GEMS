@@ -3,6 +3,7 @@
 @using System.ComponentModel.DataAnnotations
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
+@inject UserServices UserServices
 
 <EditForm Model="@loginModel" OnValidSubmit="HandleValidSubmit">
     <DataAnnotationsValidator />
@@ -33,7 +34,7 @@
             </div>
             <ValidationMessage For="@(() => loginModel.Password)" />
 
-            <button type="submit">LOGIN</button>
+            <button class="btn-login" type="submit">LOGIN</button>
 
             <div class="link">
                 <a href="forgot-password">Forgot Password?</a>
@@ -68,18 +69,13 @@
 
     private async Task HandleValidSubmit()
     {
-        var foundUser = users.FirstOrDefault(u =>
-            u.Email.Equals(loginModel.Email, StringComparison.OrdinalIgnoreCase) &&
-            u.Password == loginModel.Password);
+        var foundUser = UserServices.GetUserByEmail(loginModel.Email);
 
-        if (foundUser != null)
+        if (foundUser != null && foundUser.Password == loginModel.Password)
         {
             errorMessage = null;
-
-            // Save login state
             await JSRuntime.InvokeVoidAsync("localStorage.setItem", "userRole", foundUser.Role);
             await JSRuntime.InvokeVoidAsync("localStorage.setItem", "userEmail", foundUser.Email);
-
             NavigateToRoleDashboard(foundUser.Role);
         }
         else

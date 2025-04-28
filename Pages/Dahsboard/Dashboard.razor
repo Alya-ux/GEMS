@@ -2,6 +2,7 @@
 @layout MainLayout
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
+@inject UserServices UserServices
 
 <div class="dashboard-header">
     <h3 class="dashboard-title">Dashboard</h3>
@@ -137,7 +138,9 @@
 
     protected override async Task OnInitializedAsync()
     {
-        userName = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "userEmail");
+        var email = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "userEmail");
+        var user = UserServices.GetUserByEmail(email);
+        userName = user?.Name ?? email;
     }
 
     private void NavigateToRegister()
@@ -146,56 +149,3 @@
     }
 }
 
-<style>
-    .dashboard-header {
-        padding: 1.5rem 2rem 0.5rem 2rem;
-        background-color: #ffffff;
-        border-bottom: 1px solid #e9ecef;
-    }
-
-    .dashboard-title {
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: #343a40;
-        margin-bottom: 0.25rem;
-    }
-
-    .welcome-message {
-        color: #6c757d;
-        font-size: 0.9rem;
-        margin-bottom: 0;
-    }
-
-    .dashboard-container {
-        padding: 1rem 2rem 2rem 2rem;
-        background-color: #ffffff;
-        min-height: calc(100vh - 7rem);
-    }
-    /* Compact Button Styles */
-    .btn-sm {
-        font-size: 0.75rem;
-        line-height: 1.25;
-    }
-
-    .card {
-        border: none;
-        border-radius: 0.375rem;
-        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    }
-
-    .card-header {
-        padding: 0.75rem 1rem;
-        background-color: #ffffff;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-    }
-
-    .list-group-item {
-        padding: 0.5rem 1rem;
-        border-left: none;
-        border-right: none;
-    }
-
-    .table th, .table td {
-        padding: 0.5rem 1rem;
-    }
-</style>

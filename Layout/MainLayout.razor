@@ -12,7 +12,7 @@
         <!-- Top Bar -->
         <div class="top-row px-4 d-flex justify-content-between align-items-center">
             <!-- Search -->
-            <input type="text" class="form-control" placeholder="Search..." style="max-width: 300px;" />
+            <input type="text" class="form-control" placeholder="Search..." style="max-width: 300px; margin-right: 15px;" />
 
             <!-- Icons + Profile -->
             <div class="d-flex align-items-center gap-3">
@@ -21,7 +21,7 @@
 
                 <!-- Theme Toggle -->
                 <div class="theme-toggle" @onclick:stopPropagation>
-                    <button class="btn btn-link p-0" @onclick="ToggleThemeDropdown">
+                    <button class="btn btn-link p-0" style="margin-top: 0px; margin-left:0px;" @onclick="ToggleThemeDropdown">
                         <i class="@GetThemeIcon(currentTheme) fs-5"></i>
                         <span class="theme-text">@GetThemeLabel(currentTheme)</span>
                     </button>
@@ -116,7 +116,6 @@
     .theme-toggle {
         position: relative;
         display: inline-block;
-        height: 100px;
     }
 
         .theme-toggle button {

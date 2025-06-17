@@ -1,0 +1,432 @@
+﻿@page "/users/edit/{UserId:int}"
+@layout MainLayout
+@inject UserServices UserService
+@inject NavigationManager Navigation
+@inject IJSRuntime JsRuntime
+@inject FunctionalityGroupService FunctionalityGroupService
+
+<div class="edit-container">
+    <h3>Edit User <span class="text-muted">#@editModel?.Username</span></h3>
+
+    <EditForm Model="@editModel" OnValidSubmit="HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <div class="form-card">
+            @* @if (!string.IsNullOrEmpty(message))
+            {
+                <div class="alert @(isSuccess ? "alert-success" : "alert-danger")">
+                    @message
+                </div>
+            }*@
+
+            @if (isSuccess && !string.IsNullOrEmpty(message))
+            {
+            <div class="alert alert-success">
+                <span>@message</span>
+                <a href="/users">
+                    Back to User List
+                </a>
+            </div>
+            }
+
+            <div class="form-group">
+                <label>Username</label>
+                <InputText @bind-Value="editModel.Username" class="form-control" readonly />
+            </div>
+
+            <div class="form-group">
+                <label>Fullname</label>
+                <InputText @bind-Value="editModel.Fullname" class="form-control" />
+                <ValidationMessage For="@(() => editModel.Fullname)" />
+            </div>
+
+            <div class="form-group">
+                <label>Email Address</label>
+                <InputText @bind-Value="editModel.Email" class="form-control" />
+                <ValidationMessage For="@(() => editModel.Email)" />
+            </div>
+
+            @*<div class="form-group">
+                <label>Role</label>
+                <InputSelect @bind-Value="editModel.Role" class="form-select">
+                    <option value="">Select Role</option>
+                    <option value="1stAdmin">1st Admin</option>
+                    <option value="2ndAdmin">2nd Admin</option>
+                    <option value="VaultAuditor">Vault Auditor</option>
+                    <option value="Custodian">Custodian</option>
+                </InputSelect>
+                <ValidationMessage For="@(() => editModel.Role)" />
+            </div>*@
+            <div class="form-group">
+                <label>User Role</label>
+                @if (isLoadingGroups)
+                {
+                    <div class="form-control">Loading roles...</div>
+                }
+                else
+                {
+                    <InputSelect class="form-select" @bind-Value="selectedGroupId">
+                        <option value="0">-- Select Role --</option>
+                        @foreach (var group in functionalityGroups.Where(g => g.Status == FunctionalityGroupModel.GroupStatuses.Approved))
+                        {
+                            <option value="@group.Id">@group.GroupName</option>
+                        }
+                    </InputSelect>
+                }
+            </div>
+
+            <!-- Extended Functionality (Optional) -->
+            <div class="form-group">
+                <label>
+                    <i class="fas fa-user-shield me-2"></i>Extended Functionality
+                    <span class="text-muted small">(Optional)</span>
+                </label>
+                <div class="card permissions-card">
+                    <div class="card-body p-0">
+                        <div class="row m-0">
+                            <div class="col-md-12 p-0">
+                                <div style="max-height: 100px; overflow-y: auto;">
+                                    <div class="p-3">
+                                        @foreach (var permission in AllPermissions)
+                                        {
+                                            <div class="col-md-6 mb-2">
+                                                <div class="form-check">
+                                                    <input type="checkbox"
+                                                           class="form-check-input"
+                                                           id="perm_@permission"
+                                                           checked="@additionalPermissions.Contains(permission)"
+                                                           @onchange="@(e => ToggleAdditionalPermission(permission, (bool)e.Value))" />
+                                                    <label class="form-check-label" for="perm_@permission">
+                                                        @GetPermissionDisplayName(permission)
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Functionality Groups Section -->
+            @*<div class="form-group mb-3">
+                <label>
+                    <i class="fas fa-users-cog me-2 mb-2"></i>Functionality Groups
+                    <span class="text-muted small"> (Optional)</span>
+                </label>
+                @if (isLoadingGroups)
+                {
+                    <div class="form-control">Loading groups...</div>
+                }
+                else if (functionalityGroups == null || !functionalityGroups.Any())
+                {
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>No active functionality groups available
+                    </div>
+                }
+                else
+                {
+                    <div class="border rounded p-3 bg-light">
+                        @foreach (var group in functionalityGroups.Where(g => g.Status == FunctionalityGroupModel.GroupStatuses.Approved))
+                        {
+                            <div class="form-check mb-2">
+                                <input type="checkbox"
+                                       class="form-check-input"
+                                       id="group_@group.Id"
+                                       checked="@editModel.FunctionalityGroupIds.Contains(group.Id)"
+                                       @onchange="@(e => { ToggleGroupSelection(group.Id, (bool)e.Value); })" />
+                                <label class="form-check-label" for="group_@group.Id">
+                                    <span class="fw-semibold">@group.GroupName</span>
+                                    <span class="text-muted small d-block mt-1">
+                                        @string.Join(", ", group.Permissions.Select(GetPermissionDisplayName))
+                                    </span>
+                                </label>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>*@
+
+            <div class="form-check mb-3">
+                <InputCheckbox @bind-Value="editModel.IsActive" class="form-check-input" />
+                <label class="form-check-label">Active User</label>
+            </div>
+
+            @*<div class="form-group">
+                <label>Reset Password</label>
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                @onclick="ShowResetPassword">
+                    <i class="fas fa-key"></i> Reset Password
+                </button>
+            </div>
+
+            @if (showResetPassword)
+            {
+                <div class="password-reset-card">
+                    <div class="form-group">
+                        <label>New Password</label>
+                        <InputText type="password" @bind-Value="newPassword" class="form-control" />
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm Password</label>
+                        <InputText type="password" @bind-Value="confirmPassword" class="form-control" />
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm"
+                    @onclick="ResetPassword" disabled="@(newPassword != confirmPassword)">
+                        Update Password
+                    </button>
+                </div>
+            }*@
+
+            <div class="button-group mt-4 d-flex justify-content-end">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="fas fa-save"></i> Save Changes
+                            </button>
+                            <button type="button" class="btn btn-secondary" @onclick="Cancel">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                            @*<button type="button" class="btn btn-danger" @onclick="ConfirmDelete">
+                                <i class="fas fa-trash-alt"></i> Delete User
+                            </button>*@
+                        </div>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    [Parameter]
+    public int UserId { get; set; }
+
+    private User editModel = new();
+    private string message = string.Empty;
+    private bool isSuccess;
+    private bool showResetPassword;
+    private string newPassword = string.Empty;
+    private string confirmPassword = string.Empty;
+    private int selectedGroupId = 0;
+    private FunctionalityGroupModel? selectedGroup => functionalityGroups.FirstOrDefault(g => g.Id == selectedGroupId);
+    private List<string> additionalPermissions = new();
+
+    private List<string> AllPermissions = new()
+    {
+        FunctionalityGroupModel.Permission.AddUsers,
+        FunctionalityGroupModel.Permission.UpdateUsers,
+        FunctionalityGroupModel.Permission.DeleteUsers,
+        FunctionalityGroupModel.Permission.AddVaults,
+        FunctionalityGroupModel.Permission.UpdateVaults,
+        FunctionalityGroupModel.Permission.DeleteVaults,
+        FunctionalityGroupModel.Permission.ApproveRegistrations,
+        FunctionalityGroupModel.Permission.ApproveVaultAssignments,
+        FunctionalityGroupModel.Permission.SetUnlockRules,
+        FunctionalityGroupModel.Permission.AssignCustodians
+    };
+
+    // Add functionality groups variables
+    private List<FunctionalityGroupModel> functionalityGroups = new();
+    private bool isLoadingGroups = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = UserService.GetAllUsers().FirstOrDefault(u => u.Id == UserId);
+        if (user == null)
+        {
+            Navigation.NavigateTo("/users");
+            return;
+        }
+
+        editModel = new User
+        {
+                Id = user.Id,
+                Username = user.Username,
+                Fullname = user.Fullname,
+                Email = user.Email,
+                Role = user.Role,
+                IsActive = user.IsActive,
+                Password = user.Password,
+                FunctionalityGroupIds = user.FunctionalityGroupIds,
+                FunctionalityGroupNames = user.FunctionalityGroupNames
+        };
+
+         await LoadFunctionalityGroups();
+    }
+
+private async Task LoadFunctionalityGroups()
+    {
+        try
+        {
+            functionalityGroups = await FunctionalityGroupService.GetAllGroupsAsync();
+            isLoadingGroups = false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading groups: {ex.Message}");
+            isLoadingGroups = false;
+        }
+    }
+
+    private string GetPermissionDisplayName(string permission)
+{
+    return permission switch
+    {
+        "AddUsers" => "Add Users",
+        "UpdateUsers" => "Update Users",
+        "DeleteUsers" => "Delete Users",
+        "AddVaults" => "Add Vaults",
+        "UpdateVaults" => "Update Vaults",
+        "DeleteVaults" => "Delete Vaults",
+        "ApproveRegistrations" => "Approve/Reject User Registrations",
+        "ApproveVaultAssignments" => "Approve/Reject Vault Assignments",
+        "SetUnlockRules" => "Set Unlock Rules",
+        "AssignCustodians" => "Assign Custodians",
+        _ => permission
+    };
+}
+
+    private void ToggleAdditionalPermission(string permission, bool isChecked)
+    {
+        if (isChecked)
+        {
+            if (!additionalPermissions.Contains(permission))
+                additionalPermissions.Add(permission);
+        }
+        else
+        {
+            additionalPermissions.Remove(permission);
+        }
+    }
+
+
+private void ToggleGroupSelection(int groupId, bool isSelected)
+{
+    if (isSelected)
+    {
+        if (!editModel.FunctionalityGroupIds.Contains(groupId))
+        {
+                        editModel.FunctionalityGroupIds.Add(groupId);
+        }
+    }
+    else
+    {
+        editModel.FunctionalityGroupIds.Remove(groupId);
+    }
+}
+
+    private void NavigateToUserList()
+    {
+        Navigation.NavigateTo("/users");
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        try
+        {
+        // Update functionality group names based on selected IDs
+        var selectedGroups = functionalityGroups
+                        .Where(g => editModel.FunctionalityGroupIds.Contains(g.Id))
+                        .ToList();
+
+        editModel.FunctionalityGroupNames = selectedGroups.Select(g => g.GroupName).ToList();
+
+            UserService.UpdateUser(editModel);
+            message = "User updated successfully!";
+            isSuccess = true;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            message = $"Error updating user: {ex.Message}";
+            isSuccess = false;
+        }
+    }
+
+    private async Task ResetPassword()
+    {
+        if (string.IsNullOrEmpty(newPassword) || newPassword != confirmPassword)
+        {
+            message = "Passwords do not match or are empty";
+            isSuccess = false;
+            return;
+        }
+
+        UserService.UpdatePassword(editModel.Email, newPassword);
+        message = "Password updated successfully!";
+        isSuccess = true;
+        showResetPassword = false;
+        newPassword = string.Empty;
+        confirmPassword = string.Empty;
+    }
+
+    private void ShowResetPassword()
+    {
+        showResetPassword = !showResetPassword;
+        if (!showResetPassword)
+        {
+            newPassword = string.Empty;
+            confirmPassword = string.Empty;
+        }
+    }
+
+    private async Task ConfirmDelete()
+    {
+        var confirmed = await JsRuntime.InvokeAsync<bool>("confirm",
+            $"Are you sure you want to delete user {editModel.Fullname}?");
+
+        if (confirmed)
+        {
+            UserService.DeleteUser(editModel.Id);
+            Navigation.NavigateTo("/users");
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/users");
+    }
+}
+
+<style>
+    .edit-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .form-card {
+        background: white;
+        padding: 25px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-control, .form-select {
+        padding: 10px;
+        border-radius: 4px;
+        border: 1px solid #ced4da;
+    }
+
+    .password-reset-card {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+        border: 1px solid #dee2e6;
+    }
+
+    .button-group {
+        gap: 10px;
+    }
+
+    .btn {
+        padding: 8px 16px;
+        min-width: 120px;
+    }
+
+        .btn i {
+            margin-right: 5px;
+        }
+</style>

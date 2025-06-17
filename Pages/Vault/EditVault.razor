@@ -1,0 +1,422 @@
+﻿@page "/vaults/edit/{id:int}"
+@page "/vaults/edit/{id:int}/{Section}"
+@layout MainLayout
+@using GEMS.Models
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject IVaultService VaultService
+
+<div class="vault-edit-container">
+    <div class="edit-header">
+        <h3>Update Vault: [@vault?.Name]</h3>
+        @if (!string.IsNullOrEmpty(Section))
+        {
+            <div class="section-alert">
+                <i class="fas fa-exclamation-circle"></i>
+                Editing @Section settings
+            </div>
+        }
+    </div>
+
+    <!-- Add navigation tabs -->
+    <div class="edit-tabs">
+        <button class="@GetTabClass("details")" @onclick="@(() => NavigateToSection("details"))">
+            Vault Details
+        </button>
+        <button class="@GetTabClass("rules")" @onclick="@(() => NavigateToSection("rules"))">
+            Unlock Rules
+        </button>
+        @*<button class="@GetTabClass("access")" @onclick="@(() => NavigateToSection("access"))">
+            Access Control
+        </button>*@
+    </div>
+
+    <div class="edit-content">
+        @if (activeSection == "details" || string.IsNullOrEmpty(Section))
+        {
+            <div class="vault-details">        
+                <div class="form-group">
+                    <label>Branch:</label>
+                    <InputText @bind-Value="vault.Branch" class="form-control" readonly />
+                </div>
+
+                <div class="form-group">
+                    <label>Vault Name:</label>
+                    <input class="form-control" @bind="vault.Name" />
+                    @if (modifiedFields.Contains("Name"))
+                    {
+                        <span class="modified-indicator">◄── Modified</span>
+                    }
+                </div>
+
+                <div class="form-group">
+                    <label>Controller ID:</label>
+                    <input class="form-control" @bind="vault.ControllerID" />
+                    @if (modifiedFields.Contains("ControllerID"))
+                    {
+                        <span class="modified-indicator">◄── Modified</span>
+                    }
+                </div>
+
+                <div class="form-group">
+                    <label>Controller IP:</label>
+                    <input class="form-control" @bind="vault.ControllerIP" />
+                    @if (modifiedFields.Contains("ControllerIP"))
+                    {
+                        <span class="modified-indicator">◄── Modified</span>
+                    }
+                </div>
+            </div>
+          }
+          else if (activeSection == "rules")
+                {
+                    <div class="unlock-rules">
+                        <h4 class="section-header">Unlock Rules</h4>
+
+                        @*<div class="form-group">
+                            <label>Time Window:</label>
+                            <select class="form-control" @bind="vault.TimeWindow">
+                                @foreach (var window in timeWindows)
+                                {
+                                    <option value="@window">@window</option>
+                                }
+                            </select>
+                            @if (modifiedFields.Contains("TimeWindow"))
+                            {
+                                <span class="modified-indicator">◄── Modified</span>
+                            }
+                        </div>*@
+
+                        <div class="form-group">
+                            <label>Required Custodians:</label>
+                            <select class="form-control" @bind="vault.RequiredCustodians">
+                                @for (int i = 1; i <= 5; i++)
+                                {
+                                    <option value="@i">@i</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+          }
+
+         @*else if (activeSection == "access")
+          {
+                <div class="access-control">
+                    <h4 class="section-header">Access Control</h4>
+
+                </div>
+          }*@
+
+        @*<div class="audit-trail">
+            <h4>AUDIT TRAIL (Last 5 Changes)</h4>
+            <div class="audit-list">
+                @foreach (var entry in auditTrail)
+                {
+                    <div class="audit-entry" title="@entry.Details">
+                        <div class="audit-date">@entry.Timestamp.ToString("yyyy-MM-dd")</div>
+                        <div class="audit-action">@entry.Action</div>
+                    </div>
+                }
+            </div>
+        </div>*@
+    </div>
+
+    <div class="edit-actions">
+        <button class="btn btn-outline-secondary" @onclick="Cancel">CANCEL</button>
+        <button class="btn btn-primary" @onclick="SaveChanges">SAVE</button>
+        @*<button class="btn btn-outline-secondary" @onclick="RevertChanges">REVERT CHANGES</button>*@
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    [Parameter]
+    public string Section { get; set; }
+
+    private string activeSection = "details";
+    private VaultModel vault = new VaultModel();
+    private VaultModel originalVault = new VaultModel();
+    private HashSet<string> modifiedFields = new HashSet<string>();
+
+    private List<AuditEntry> auditTrail = new List<AuditEntry>();
+
+    private List<string> timeWindows = new List<string>
+    {
+        "08:00 AM - 06:00 PM",
+        "07:00 AM - 07:00 PM",
+        "24 Hours",
+        "Custom..."
+    };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrEmpty(Section))
+        {
+            activeSection = Section.ToLower();
+        }
+
+        var result = await VaultService.GetVaultById(Id);
+        if (result != null)
+        {
+            vault = result;
+            originalVault = new VaultModel
+                {
+                    Id = vault.Id,
+                    Name = vault.Name,
+                    Branch = vault.Branch,
+                    State = vault.State,
+                    Status = vault.Status,
+                    ControllerID = vault.ControllerID,
+                    ControllerIP = vault.ControllerIP
+                };
+        }
+    }
+
+    private void Cancel() => NavigationManager.NavigateTo("/vaults");
+    private async Task SaveChanges()
+    {
+        await VaultService.UpdateVault(vault);
+        NavigationManager.NavigateTo("/vaults");
+    }
+
+    /*private void RevertChanges()
+    {
+        vault = new VaultModel
+            {
+                Id = originalVault.Id,
+                Name = originalVault.Name,
+                Branch = originalVault.Branch,
+                State = originalVault.State,
+                Status = originalVault.Status,
+                ControllerID = originalVault.ControllerID,
+                ControllerIP = originalVault.ControllerIP,
+                TimeWindow = originalVault.TimeWindow,
+                RequiredCustodians = originalVault.RequiredCustodians
+            };
+        modifiedFields.Clear();
+    }*/
+
+    private void NavigateToSection(string section)
+    {
+        activeSection = section;
+        NavigationManager.NavigateTo($"/vaults/edit/{Id}/{section}");
+    }
+
+    private string GetTabClass(string section)
+    {
+        return activeSection == section ? "tab-btn active" : "tab-btn";
+    }
+
+    private class AuditEntry
+    {
+        public DateTime Timestamp { get; set; }
+        public string Action { get; set; }
+        public string Details { get; set; }
+    }
+
+   /* private void LoadVaultData()
+    {
+        // Implement your vault loading logic here
+        // Use the Id parameter to fetch the correct vault
+    }*/
+
+
+   /* protected override void OnInitialized()
+    {
+        // Simulate loading vault data (replace with API call)
+        vault = new Vault
+            {
+                Branch = "KL Main",
+                Name = "Vault_KL01",
+                ControllerIP = "192.168.1.10",
+                TimeWindow = "08:00 AM - 06:00 PM",
+                RequiredCustodians = 2
+            };
+
+        originalVault = new Vault
+            {
+                Branch = vault.Branch,
+                Name = vault.Name,
+                ControllerIP = vault.ControllerIP,
+                TimeWindow = vault.TimeWindow,
+                RequiredCustodians = vault.RequiredCustodians
+            };
+
+        // Simulate audit trail (replace with API call)
+        auditTrail = new List<AuditEntry>
+        {
+            new AuditEntry { Timestamp = DateTime.Now.AddDays(-2), Action = "Changed Custodians → Ali" },
+            new AuditEntry { Timestamp = DateTime.Now.AddDays(-5), Action = "Updated IP [192.168.1.10]" },
+            new AuditEntry { Timestamp = DateTime.Now.AddDays(-10), Action = "Created by Admin (Jane)" }
+        };
+    }*/
+
+    /*private void SaveChanges()
+    {
+        // Highlight modified fields
+        modifiedFields.Clear();
+        if (vault.Name != originalVault.Name) modifiedFields.Add("Name");
+        if (vault.ControllerIP != originalVault.ControllerIP) modifiedFields.Add("ControllerIP");
+        if (vault.TimeWindow != originalVault.TimeWindow) modifiedFields.Add("TimeWindow");
+
+        // Save logic would go here
+        NavigationManager.NavigateTo("/vaults");
+    }
+
+    private void RevertChanges()
+    {
+        vault.Name = originalVault.Name;
+        vault.ControllerIP = originalVault.ControllerIP;
+        vault.TimeWindow = originalVault.TimeWindow;
+        modifiedFields.Clear();
+    }
+
+    private class Vault
+    {
+        public string Branch { get; set; }
+        public string Name { get; set; }
+        public string ControllerID { get; set; }
+        public string ControllerIP { get; set; }
+        public string TimeWindow { get; set; }
+        public int RequiredCustodians { get; set; }
+    }*/
+
+    
+}
+<style>
+    .vault-edit-container {
+        max-width: 1200px;
+        margin: 2rem auto;
+        padding: 2rem;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .edit-header {
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #eee;
+    }
+
+    .edit-content {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 2rem;
+    }
+
+    .vault-details {
+        padding-right: 2rem;
+        border-right: 1px solid #eee;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+        position: relative;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+        .form-control[readonly] {
+            background-color: #f5f5f5;
+        }
+
+    .modified-indicator {
+        color: #dc3545;
+        font-size: 0.8rem;
+        margin-left: 0.5rem;
+        font-weight: bold;
+    }
+
+    .section-header {
+        margin: 2rem 0 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #eee;
+    }
+
+    .audit-trail {
+        padding: 0 1rem;
+    }
+
+    .audit-list {
+        margin-top: 1rem;
+    }
+
+    .audit-entry {
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        border-radius: 4px;
+        background-color: #f8f9fa;
+        cursor: pointer;
+    }
+
+        .audit-entry:hover {
+            background-color: #e9ecef;
+        }
+
+    .audit-date {
+        font-weight: bold;
+        font-size: 0.9rem;
+    }
+
+    .audit-action {
+        font-size: 0.85rem;
+        color: #495057;
+    }
+
+    .edit-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid #eee;
+    }
+
+    .preset-info {
+        color: #4a90e2;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+    }
+
+    .section-alert {
+        background-color: #fff8e1;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+
+    .edit-tabs {
+        display: flex;
+        border-bottom: 1px solid #ddd;
+        margin-bottom: 1.5rem;
+    }
+
+    .tab-btn {
+        padding: 0.75rem 1.5rem;
+        background: none;
+        border: none;
+        border-bottom: 3px solid transparent;
+        cursor: pointer;
+        font-weight: 500;
+        color: #666;
+    }
+
+        .tab-btn.active {
+            color: #0d6efd;
+            border-bottom-color: #0d6efd;
+        }
+
+        .tab-btn:hover:not(.active) {
+            background-color: #f8f9fa;
+        }
+</style>

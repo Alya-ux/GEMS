@@ -1,0 +1,187 @@
+﻿@page "/vaults/details/{Id:int}"
+@layout MainLayout
+@inject IVaultService VaultService
+@inject NavigationManager Navigation
+
+<div class="vault-detail-container">
+    <!-- Header with back button and title -->
+    <div class="detail-header">
+        <button class="btn btn-outline-secondary btn-sm" @onclick="NavigateBack">
+            <i class="fas fa-arrow-left me-2"></i>Back to Vaults
+        </button>
+        <h3 class="page-title">Vault Details</h3>
+        @if (isEditable)
+        {
+            <button class="btn btn-primary ms-auto" @onclick="NavigateToEdit">
+                <i class="fas fa-edit"></i> Edit
+            </button>
+        }
+    </div>
+
+    @if (vault == null)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else
+    {
+        <!-- Status Alert Bar -->
+        <div class="alert alert-@GetStatusAlertClass()">
+            <strong>@vault.Status</strong>
+            <span class="float-end">Controller: @vault.ControllerID</span>
+        </div>
+
+        <!-- Main Card -->
+        <div class="detail-card">
+            <div class="row">
+                <!-- Left Column: Basic Info -->
+                <div class="col-md-6">
+                    <dl class="vault-info">
+                        <dt>Vault Name</dt>
+                        <dd>@vault.Name</dd>
+
+                        <dt>Branch</dt>
+                        <dd>@vault.Branch</dd>
+
+                        <dt>State</dt>
+                        <dd>@vault.State</dd>
+
+                        <dt>Required Custodians</dt>
+                        <dd>@vault.RequiredCustodians</dd>
+                    </dl>
+                </div>
+
+                <!-- Right Column: Technical Info -->
+                <div class="col-md-6">
+                    <dl class="vault-info">
+                        <dt>Controller ID</dt>
+                        <dd>@vault.ControllerID</dd>
+
+                        <dt>Controller IP</dt>
+                        <dd>@vault.ControllerIP</dd>
+
+                        @*<dt>Access Window</dt>
+                        <dd>@(vault.TimeWindow ?? "Not specified")</dd>*@
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <ul class="nav nav-tabs mt-4">
+            <li class="nav-item">
+                <button class="nav-link @(activeTab == "custodians" ? "active" : "")" 
+                        @onclick="@(() => SwitchTab("custodians"))">
+                    Custodians
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link @(activeTab == "access" ? "active" : "")" 
+                        @onclick="@(() => SwitchTab("access"))">
+                    Access Logs
+                </button>
+            </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content p-3 border border-top-0">
+            @switch (activeTab)
+            {
+                case "custodians":
+                    <VaultCustodians VaultId="@vault.Id" />
+                    break;
+                case "access":
+                    <div class="text-muted">
+                        Access logs will be displayed here
+                    </div>
+                    break;
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private VaultModel? vault;
+    private string activeTab = "custodians";
+    private bool isEditable = true; // Set based on user role in real implementation
+
+    protected override async Task OnInitializedAsync()
+    {
+        vault = await VaultService.GetVaultById(Id);
+        if (vault == null) Navigation.NavigateTo("/vaults");
+    }
+
+    private string GetStatusAlertClass()
+    {
+        return vault?.Status switch
+        {
+            VaultStatus.Approved => "success",
+            VaultStatus.Pending => "warning",
+            VaultStatus.Inactive => "secondary",
+            VaultStatus.Rejected => "danger",
+            _ => "info"
+        };
+    }
+
+    private void NavigateBack() => Navigation.NavigateTo("/vaults");
+    private void NavigateToEdit() => Navigation.NavigateTo($"/vaults/edit/{Id}");
+    private void SwitchTab(string tab) => activeTab = tab;
+}
+
+<style>
+    .vault-detail-container {
+        padding: 1.5rem;
+        background-color: #fff;
+        border-radius: 0.5rem;
+    }
+
+    .detail-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .detail-card {
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .vault-info {
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        gap: 0.75rem 1.5rem;
+    }
+
+    .vault-info dt {
+        font-weight: 500;
+        color: #6c757d;
+    }
+
+    .vault-info dd {
+        margin: 0;
+        word-break: break-word;
+    }
+
+    .nav-tabs .nav-link {
+        cursor: pointer;
+        border: none;
+        color: #495057;
+        padding: 0.75rem 1.25rem;
+        font-weight: 500;
+    }
+
+    .nav-tabs .nav-link.active {
+        color: var(--bs-primary);
+        border-bottom: 3px solid var(--bs-primary);
+        background: transparent;
+    }
+
+    .loading {
+        padding: 2rem;
+        text-align: center;
+        color: #6c757d;
+    }
+</style>

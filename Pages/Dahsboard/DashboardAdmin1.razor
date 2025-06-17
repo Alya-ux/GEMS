@@ -140,7 +140,7 @@
     {
         var email = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "userEmail");
         var user = UserServices.GetUserByEmail(email);
-        userName = user?.Name ?? email;
+        userName = user?.Fullname ?? email;
     }
 
     private void NavigateToRegister()

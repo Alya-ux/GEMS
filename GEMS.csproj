@@ -8,9 +8,28 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Services\AuthorizationService.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Remove="Pages\ChangePassword.razor" />
+    <Content Remove="Pages\Dahsboard\DashboardAdmin2.razor" />
+    <Content Remove="Pages\ForgotPassword.razor" />
+    <Content Remove="Pages\FunctionalityGroupEdit.razor" />
+    <Content Remove="Pages\ResetPassword.razor" />
+    <Content Remove="Pages\User\EditProfile.razor" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Pages\Dahsboard\DashboardAdmin2.razor.css" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="FontAwesome" Version="4.7.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="8.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.14" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.14" PrivateAssets="all" />
+    <PackageReference Include="System.Linq.Dynamic.Core" Version="1.6.2" />
   </ItemGroup>
 
   <ItemGroup>

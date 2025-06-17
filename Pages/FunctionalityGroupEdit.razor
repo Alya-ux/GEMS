@@ -1,0 +1,149 @@
+﻿@* Pages/FunctionalityGroupEdit.razor *@
+@page "/functionality-groups/edit"
+@page "/functionality-groups/edit/{Id:int}"
+@inject FunctionalityGroupService FunctionalityGroupService
+@inject NavigationManager Navigation
+@using System.ComponentModel.DataAnnotations
+
+<h3>@Title</h3>
+
+<EditForm Model="@CurrentGroup" OnValidSubmit="@HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group">
+        <label for="groupName">Group Name:</label>
+        <InputText id="groupName" @bind-Value="CurrentGroup.GroupName" class="form-control" />
+        <ValidationMessage For="@(() => CurrentGroup.GroupName)" />
+    </div>
+
+    <div class="form-group">
+        <label>Permissions:</label>
+        <div class="permissions-container">
+            @foreach (var permission in AllPermissions)
+            {
+                <div class="form-check">
+                    <input type="checkbox"
+                           class="form-check-input"
+                           checked="@CurrentGroup.Permissions.Contains(permission)"
+                           @onchange="@(e => TogglePermission(permission, (bool)e.Value))" />
+                    <label class="form-check-label">@GetPermissionDisplayName(permission)</label>
+                </div>
+            }
+        </div>
+    </div>
+
+   <!-- <div class="form-group">
+        <label>Role Assignment:</label>
+        <InputSelect @bind-Value="CurrentGroup.AssignedRole" class="form-control">
+            <option value="">Select Role</option>
+            @foreach (var role in Enum.GetValues<RoleType>())
+            {
+                <option value="@role">@GetRoleDisplayName(role)</option>
+            }
+        </InputSelect>
+        <ValidationMessage For="@(() => CurrentGroup.AssignedRole)" />
+    </div>-->
+
+    <div class="button-group">
+        <button type="submit" class="btn btn-primary">Save</button>
+        <button type="button" class="btn btn-secondary" @onclick="Cancel">Cancel</button>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private string Title => Id == 0 ? "Create Functionality Group" : "Edit Functionality Group";
+    private FunctionalityGroup CurrentGroup { get; set; } = new();
+    private List<Permission> AllPermissions { get; set; } = Enum.GetValues<Permission>().ToList();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id > 0)
+        {
+            var group = await FunctionalityGroupService.GetGroupByIdAsync(Id);
+            CurrentGroup = group ?? new FunctionalityGroup();
+        }
+        else
+        {
+            CurrentGroup = new FunctionalityGroup { Permissions = new List<Permission>() };
+        }
+    }
+
+    private void TogglePermission(Permission permission, bool isChecked)
+    {
+        if (isChecked)
+        {
+            if (!CurrentGroup.Permissions.Contains(permission))
+                CurrentGroup.Permissions.Add(permission);
+        }
+        else
+        {
+            CurrentGroup.Permissions.Remove(permission);
+        }
+    }
+
+    private bool GetPermissionValue(Permission permission)
+    {
+        return CurrentGroup.Permissions.Contains(permission);
+    }
+
+    private void SetPermissionValue(Permission permission, bool value)
+    {
+        if (value && !CurrentGroup.Permissions.Contains(permission))
+        {
+            CurrentGroup.Permissions.Add(permission);
+        }
+        else if (!value && CurrentGroup.Permissions.Contains(permission))
+        {
+            CurrentGroup.Permissions.Remove(permission);
+        }
+    }
+
+    private string GetPermissionDisplayName(Permission permission)
+    {
+        return permission switch
+        {
+            Permission.AddUsers => "Add Users",
+            Permission.UpdateUsers => "Update Users",
+            Permission.DeleteUsers => "Delete Users",
+            Permission.AddVaults => "Add Vaults",
+            Permission.UpdateVaults => "Update Vaults",
+            Permission.DeleteVaults => "Delete Vaults",
+            Permission.ApproveRegistrations => "Approve/Reject User Registrations",
+            Permission.ApproveVaultAssignments => "Approve/Reject Vault Assignments",
+            Permission.SetUnlockRules => "Set Unlock Rules",
+            Permission.AssignCustodians => "Assign Custodians to Vaults",
+            _ => permission.ToString()
+        };
+    }
+
+    private string GetRoleDisplayName(RoleType role)
+    {
+        var fieldInfo = role.GetType().GetField(role.ToString());
+        var attributes = fieldInfo?.GetCustomAttributes(typeof(DisplayAttribute), false)
+            as DisplayAttribute[];
+             
+        return attributes?.Length > 0 ? attributes[0].Name : role.ToString();
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (Id == 0)
+        {
+            await FunctionalityGroupService.AddGroupAsync(CurrentGroup);
+        }
+        else
+        {
+            await FunctionalityGroupService.UpdateGroupAsync(CurrentGroup);
+        }
+
+        Navigation.NavigateTo("/functionality-groups");
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/functionality-groups");
+    }
+}

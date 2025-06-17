@@ -1,0 +1,583 @@
+﻿@page "/vaults"
+@layout MainLayout
+@using System.Linq
+@using GEMS.Models
+@using GEMS.Services
+@using GEMS.Shared
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject IVaultService VaultService
+
+<div class="vault-management-container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="page-title mb-0">Vault List</h3>
+        <button class="btn btn-primary addVault-btn" @onclick="NavigateToAdd">
+            <i class="fas fa-plus me-1"></i>Add vaults
+        </button>
+    </div>
+
+    <div class="search-filter-bar mb-3">
+        <div class="search-box">
+            <input type="text" value="@searchText" placeholder="Search vaults..." 
+            @oninput="HandleSearch" />
+        </div>
+
+        <div class="filter-box">
+            <select value="@selectedState" @onchange=" (e) => { selectedState = e.Value?.ToString(); FilterVaults(); }">
+                <option value="">All State</option>
+                @foreach (var state in allStates)
+                {
+                    <option value="@state">@state</option>
+                }
+            </select>
+        </div>
+        <div class="filter-box">
+            <select value="@selectedStatus" @onchange="(e) => { selectedStatus = e.Value?.ToString(); FilterVaults(); }">
+                <option value="">All Status</option>
+                @foreach (var status in allStatuses)
+                {
+                    <option value="@status">@status</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    <!-- Page size selector on the left -->
+    <div class="page-size-selector">
+        <label>Show: </label>
+        <select class="form-select form-select-sm" @onchange="OnPageSizeChanged">
+            @foreach (var size in PageSizeOptions)
+            {
+                <option value="@size" selected="@(size == pageSize)">@size</option>
+            }
+        </select>
+    </div>
+    
+
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>Vault Name</th>
+                    <th>Branch</th>
+                    <th>State</th>
+                    <th>Status</th>
+                    <th style="width: 150px;">Actions</th>
+                </tr>
+            </thead>
+
+            @* <table class="vault-table">
+            <thead>
+                <tr>
+                    <th>VAULT NAME</th>
+                    <th>BRANCH</th>
+                    <th>State</th>
+                    <th>STATUS</th>
+                    <th>ACTIONS</th>
+                </tr>
+            </thead>*@
+            <tbody>
+                @foreach (var vault in pagedVaults)
+                {
+                    <tr @oncontextmenu:preventDefault @oncontextmenu="() => ShowContextMenu(vault.Id)">
+                        @*<td>@vault.Name</td>*@
+                        <td>
+                            <a href="/vaults/details/@vault.Id" class="vault-link" @onclick:preventDefault
+                               @onclick="() => ViewVault(vault.Id)">
+                                @vault.Name
+                            </a>
+                        </td>
+                        <td>@vault.Branch</td>
+                        <td>@vault.State</td>
+                        <td>
+                            <span class="status-badge @vault.Status.ToString().ToLower()">
+                                @switch (vault.Status)
+                                {
+                                    case VaultStatus.Approved:
+                                        <i class="fas fa-check-circle"></i>
+                                        break;
+                                    case VaultStatus.Pending:
+                                        <i class="fas fa-clock"></i>
+                                        break;
+                                    case VaultStatus.Rejected:
+                                        <i class="fas fa-times-circle"></i>
+                                        break;
+                                    case VaultStatus.Inactive:
+                                        <i class="fas fa-ban"></i>
+                                        break;
+                                }
+                                @vault.Status
+                            </span>
+                        </td>
+                        <td class="actions">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <!-- New View Button -->
+                                <button class="btn btn-outline-info" @onclick="() => ViewVault(vault.Id)" title="View">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn btn-outline-primary" @onclick="() => EditVault(vault.Id)" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-outline-danger" @onclick ="async () => await DeleteVault(vault.Id)" title="Delete">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                                @*<button class="btn-icon" @onclick="() => ViewVault(vault.Id)" title="View">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn-icon" @onclick="() => EditVault(vault.Id)" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>*@
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="pagination-container d-flex justify-content-between align-items-center flex-wrap">
+        
+
+        <!-- Pagination component in the center -->
+        <!--<div class="mx-auto">-->
+            <Pagination PageIndex="@currentPage"
+                        TotalPages="@totalPages"
+                        Radius="2"
+                        OnSelectedPage="@(async (page) => await ChangePage(page))" />
+        <!--</div>-->
+
+        <!-- Showing info on the right -->
+        <div class="showing-info">
+            <span>
+                Showing @((currentPage - 1) * pageSize + 1)-@Math.Min(currentPage * pageSize, filteredVaults.Count) of @filteredVaults.Count vaults
+            </span>
+        </div>
+    </div>
+
+    @*<div class="pagination-container">
+        <button class="btn-pagination" @onclick="PreviousPage" disabled="@(currentPage == 1)">
+            <i class="fas fa-chevron-left"></i> Previous
+        </button>
+        <span class="page-info">Page @currentPage of @totalPages</span>
+        <button class="btn-pagination" @onclick="NextPage" disabled="@(currentPage == totalPages)">
+            Next <i class="fas fa-chevron-right"></i>
+        </button>
+        <span class="showing-info">
+            Showing @((currentPage - 1) * pageSize + 1)-@Math.Min(currentPage * pageSize, filteredVaults.Count) of @filteredVaults.Count vaults
+        </span>
+    </div>*@
+
+</div>
+
+@code {
+
+    [Parameter] //parameter settings
+    public int Id { get; set; }
+
+    private List<VaultModel> allVaults = new List<VaultModel>();
+    private List<VaultModel> filteredVaults = new List<VaultModel>();
+    private List<VaultModel> pagedVaults = new List<VaultModel>();
+
+    private List<string> allStates = new List<string>();
+    private List<string> allStatuses = Enum.GetNames(typeof(VaultStatus)).ToList();
+
+    private string searchText = "";
+    private string selectedState = "";
+    private string selectedStatus = "";
+
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalPages = 1;
+    private int[] PageSizeOptions = new[] { 5, 10, 20, 50 };
+
+    protected override async Task OnInitializedAsync()  // Changed to async
+    {
+        allVaults = await VaultService.GetAllVaults();
+        allStates = allVaults.Select(v => v.State).Distinct().OrderBy(r => r).ToList();
+        FilterVaults();
+    }
+
+    private void HandleSearch(ChangeEventArgs e)
+    {
+        searchText = e.Value?.ToString() ?? "";
+        FilterVaults();
+    }
+
+    private void FilterVaults()
+    {
+        filteredVaults = allVaults
+            .Where(v => string.IsNullOrEmpty(searchText) ||
+                  v.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                  v.Branch.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                  v.State.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+            .Where(v => string.IsNullOrEmpty(selectedState) || v.State == selectedState)
+            .Where(v => string.IsNullOrEmpty(selectedStatus) || v.Status.ToString() == selectedStatus)
+            .ToList();
+
+        totalPages = (int)Math.Ceiling((double)filteredVaults.Count / pageSize);
+        currentPage = 1;
+        UpdatePagedVaults();
+    }
+
+    private async Task ChangePage(int page)
+    {
+        currentPage = page;
+        UpdatePagedVaults();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnPageSizeChanged(ChangeEventArgs e)
+    {
+        pageSize = int.Parse(e.Value?.ToString() ?? "5");
+        currentPage = 1;
+        FilterVaults();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdatePagedVaults()
+    {
+        pagedVaults = filteredVaults
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+    }
+
+   /* private void NavigateToAdd()
+    {
+        Navigation.NavigateTo("/vaults/add");
+    }
+
+    //private void ViewVault(int id)
+    {
+        // Navigation to view vault details would go here
+        Console.WriteLine($"View vault with ID: {id}");
+    }*/
+
+   /* private void EditVault(int id)
+    {
+    // Navigation to edit vault would go here
+    //Console.WriteLine($"Edit vault with ID: {id}");
+        Navigation.NavigateTo($"/vaults/edit/{id}");
+    }*/
+
+    private void ViewVault(int id)
+    {
+        Navigation.NavigateTo($"/vaults/details/{id}");
+    }
+
+    private void NavigateToAdd() => Navigation.NavigateTo("/vaults/add");
+        private void EditVault(int id) => Navigation.NavigateTo($"/vaults/edit/{id}");
+    
+    private async Task DeleteVault(int id)  // Proper async method
+    {
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete vault {id}?");
+        if (confirmed)
+        {
+            await VaultService.DeleteVault(id);
+            allVaults = await VaultService.GetAllVaults();
+            FilterVaults();
+            StateHasChanged();
+        }
+    }
+
+    private async Task ShowContextMenu(int vaultId)
+    {
+        // JS interop to show custom right-click menu
+        await JSRuntime.InvokeVoidAsync("showVaultContextMenu", 
+            DotNetObjectReference.Create(this), 
+            vaultId,
+            new[] { "Open", "Quick Edit", "Audit Logs" });
+    }
+
+    [JSInvokable]
+    public void HandleContextMenuAction(int vaultId, string action)
+    {
+        switch (action)
+        {
+            case "Open":
+                ViewVault(vaultId);
+                break;
+            case "Quick Edit":
+                EditVault(vaultId);
+                break;
+            case "Audit Logs":
+                Navigation.NavigateTo($"/vaults/audit/{vaultId}");
+                break;
+        }
+    }
+
+    /*private class Vault
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string Branch { get; set; }
+        public string State { get; set; }
+        public string Status { get; set; }
+    }*/
+}
+
+<style>
+    .vault-management-container {
+        padding: 1.5rem;
+        background-color: #fff;
+        border-radius: 0.5rem
+    }
+
+    .search-filter-bar {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .search-box input {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        width: 250px;
+        font: 14px;
+    }
+
+    .filter-box select {
+        padding: 8px 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background-color: white;
+        font-size: 15px;
+        min-width: 150px;
+        min-height: 40px;
+    }
+
+    .addvault-btn {
+        width: 200px;
+        padding: 0.375rem 0.75rem;
+    }
+
+   .table th {
+        font-weight: 500;
+        background-color: #f8f9fa;
+    }
+
+   /* .vault-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        
+        
+    }
+
+       .vault-table th {
+            background-color: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid #dee2e6;
+            color: #495057;
+            font-weight: 500px;
+            font-size: 15px;
+            }
+
+        .vault-table td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            color: #212529
+        }
+
+        .vault-table tr:hover {
+            background-color: #f8f9fa;
+        }*/
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 13px;
+    }
+
+        .status-badge.pending {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .status-badge.approved {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .status-badge.rejected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-badge.inactive {
+            background-color: #e2e3e5;
+            color: #383d41;
+        }
+
+
+    .actions {
+        display: flex;
+        gap: 8px;
+    }
+
+
+    .btn-group-sm .btn {
+        padding: 0.25rem 0.5rem;
+    }
+
+   /* .btn-action {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 5px 8px;
+        border-radius: 4px;
+        transition: all 0.2s;
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .btn-edit {
+            color: #6c757d;
+            border: 1px solid #6c757d;
+        }
+
+            .btn-edit:hover {
+                color: #fff;
+                background-color: #6c757d;
+            }
+
+        .btn-delete {
+            color: #dc3545;
+            border: 1px solid #dc3545;
+        }
+
+            .btn-delete:hover {
+                color: #fff;
+                background-color: #dc3545;
+            }*/
+
+    .pagination-container {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-top: 20px;
+        flex-wrap: wrap;
+    }
+
+    .btn-pagination {
+        padding: 8px 16px;
+        border: 1px solid #ddd;
+        background-color: white;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 14px;
+    }
+
+        .btn-pagination:hover:not(:disabled) {
+            background-color: #f8f9fa;
+        }
+
+        .btn-pagination:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+    .page-info {
+        color: #6c757d;
+    }
+
+    .showing-info {
+        margin-left: auto;
+        color: #6c757d;
+        font-size: 14px;
+    }
+
+    .page-size-selector {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-width: 150px;
+        margin-bottom: 0.5rem;
+    }
+
+        .page-size-selector label {
+            margin-bottom: 0;
+            white-space: nowrap;
+        }
+
+        .page-size-selector select {
+            width: auto;
+        }
+
+    .showing-info {
+        min-width: 200px;
+        text-align: right;
+    }
+    /* Add to your existing styles */
+    .vault-link {
+        color: var(--bs-primary);
+        text-decoration: none;
+        font-weight: 500;
+        cursor: pointer;
+        &:hover
+
+    {
+        text-decoration: underline;
+    }
+
+    }
+
+    /* Context menu styling (requires JS implementation) */
+    .context-menu {
+        position: absolute;
+        z-index: 1000;
+        background: white;
+        border: 1px solid #ddd;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        min-width: 150px;
+        .context-item
+
+    {
+        padding: 8px 12px;
+        cursor: pointer;
+        &:hover
+
+    {
+        background-color: #f5f5f5;
+    }
+
+    }
+    }
+
+    @@media (max-width: 768px) {
+        .search-filter-bar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .search-box input {
+            width: 100%;
+        }
+
+        .pagination-container {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .page-size-selector,
+        .showing-info {
+            width: 100%;
+            justify-content: center;
+            text-align: center;
+        }
+    }
+
+</style>

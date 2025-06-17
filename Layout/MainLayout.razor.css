@@ -6,7 +6,8 @@
 
 main {
     flex: 1;
-    background-color: #f8f9fa; /* Light gray */
+    background-color: #ffffff;
+    /*background-color: #f8f9fa; /* Light gray */
 }
 
 .sidebar {
@@ -14,9 +15,11 @@ main {
 }
 
 .top-row {
-    background-color: #F5F5F5;
+    /*background-color: #F5F5F5;*/
+    background-color: #ffffff;
     color: var(--topbar-text);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* Border between topnav and content */
+    border-bottom: 1px solid #ccc;
+    /*border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* Border between topnav and content */
     justify-content: flex-end;
     height: 4rem;
     display: flex;
@@ -29,13 +32,13 @@ main {
 
     .top-row ::deep a, .top-row ::deep .btn-link {
         white-space: nowrap;
-        margin-left: 1.5rem;
+        /*margin-left: 1.5rem;*/
         text-decoration: none;
     }
 
-    .top-row ::deep a:hover, .top-row ::deep .btn-link:hover {
+   /*/ .top-row ::deep a:hover, .top-row ::deep .btn-link:hover {
         text-decoration: underline;
-    }
+    }*/
 
     .top-row ::deep a:first-child {
         overflow: hidden;

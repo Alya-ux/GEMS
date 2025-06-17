@@ -1,8 +1,12 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid d-flex align-items-center justify-content-between">
+﻿@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject UserRolesService UserRolesService
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid d-flex flex-nowrap align-items-center justify-content-between">
         <a class="navbar-brand d-flex flex-column align-items-start" href="">
             <div class="d-flex align-items-center">
-                <img src="/images/Logo2.png" style="height:33px; margin-right: 3px;" alt="Logo" />
+                <img src="/Images/Logo9.png" style="height:33px; margin-right: 3px;" alt="Logo" />
                 <span>GEMS</span>
             </div>
             <small class="text-muted" style="font-size: 0.83rem; margin-top: -2px;">Grill Entrance Management System</small>
@@ -21,36 +25,79 @@
             </NavLink>
         </div>
 
-        <!-- User Management Dropdown - Fixed Version -->
-        <div class="nav-item px-3">
-            <div class="nav-link dropdown-toggle" @onclick="ToggleUserManagement">
-                <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span>
-                <span>User Management</span>
-                
+        @if (IsAdmin1 || IsAdmin2)
+        {
+            <div class="nav-item px-3">
+                <div class="nav-link dropdown-toggle" @onclick="ToggleUserManagement">
+                    <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span>
+                    <span>User Management</span>
+                </div>
+                @if (showUserManagement)
+                {
+                    <div class="dropdown-submenu">
+                        @if (IsAdmin1)
+                        {
+                            <NavLink class="nav-link submenu-item" href="users">
+                                <span class="bi bi-list-ul-nav-menu" aria-hidden="true"></span> User List
+                            </NavLink>
+                            <NavLink class="nav-link submenu-item" href="register">
+                                <span class="bi bi-person-plus-nav-menu" aria-hidden="true"></span> Register New User
+                            </NavLink>
+                        }
+                        @if (IsAdmin2)
+                        {
+                            <NavLink class="nav-link submenu-item" href="/admin/approvals">
+                                <span class="bi bi-check-circle-nav-menu" aria-hidden="true"></span> Approval Queue
+                            </NavLink>
+                        }
+                    </div>
+                }
             </div>
-            @if (showUserManagement)
+
+            @if (IsAdmin1)
             {
-                <div class="dropdown-submenu">
-                    <NavLink class="nav-link submenu-item" href="users">
-                        <span class="bi bi-list-ul-nav-menu" aria-hidden="true"></span> User List
-                    </NavLink>
-                    <NavLink class="nav-link submenu-item" href="register">
-                        <span class="bi bi-person-plus-nav-menu" aria-hidden="true"></span> Register New User
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/functionality-groups">
+                        <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span>Functionality Group
                     </NavLink>
                 </div>
             }
-        </div>
+            
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="reports">
-                <span class="bi bi-file-earmark-bar-graph-fill-nav-menu" aria-hidden="true"></span> Reports
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="settings">
-                <span class="bi bi-gear-fill-nav-menu" aria-hidden="true"></span> System Settings
-            </NavLink>
-        </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="reports">
+                    <span class="bi bi-file-earmark-bar-graph-fill-nav-menu" aria-hidden="true"></span> Reports
+                </NavLink>
+            </div>
+        }
+
+        @if (IsAdmin1)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="settings">
+                    <span class="bi bi-gear-fill-nav-menu" aria-hidden="true"></span> Dashboard Settings
+                </NavLink>
+            </div>
+        }
+
+        @if (IsVaultAuditor)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/vaults">
+                    <span class="bi bi-safe-fill-nav-menu" aria-hidden="true"></span>Vault List
+                </NavLink>
+            </div>
+        }
+
+        @if (IsVaultAuditor)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/assign-user-to-vault">
+                    <span class="bi bi-person-fill-lock-nav-menu" aria-hidden="true"></span>Assign User To Vault
+                </NavLink>
+            </div>
+        }
+
         <div class="nav-item px-3 mt-auto">
             <a class="nav-link text-danger" href="/" @onclick="Logout">
                 <span class="bi bi-box-arrow-right-nav-menu" aria-hidden="true"></span> Logout
@@ -62,10 +109,18 @@
 @code {
     private bool collapseNavMenu = true;
     private bool showUserManagement = false;
-    [Inject] private NavigationManager Navigation { get; set; }
-    [Inject] private IJSRuntime JSRuntime { get; set; }
+    private string? userRole;
+    protected bool IsAdmin1 => userRole == UserRolesModel.Admin1;
+    protected bool IsAdmin2 => userRole == UserRolesModel.Admin2;
+    protected bool IsVaultAuditor => userRole == UserRolesModel.VaultAuditor;
+    protected bool IsCustodian => userRole == UserRolesModel.Custodian;
 
     private string? NavMenuCssClass => collapseNavMenu ? "nav-scrollable" : "nav-scrollable show";
+
+    protected override async Task OnInitializedAsync()
+    {
+        userRole = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "userRole");
+    }
 
     private void ToggleNavMenu()
     {

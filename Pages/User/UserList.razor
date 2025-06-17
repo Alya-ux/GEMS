@@ -1,0 +1,430 @@
+﻿@page "/users"
+@layout MainLayout
+@using System.Linq
+@using GEMS.Models
+@using GEMS.Shared
+@inject NavigationManager Navigation
+@inject UserServices UserServices
+@inject UserRolesService UserRolesService
+@inject IJSRuntime JsRuntime
+
+
+<!--<div class="user-list-container">-->
+    <div class="row mb-4">
+        <div class="col">
+            <h3 class="page-title  mb-0">
+                <i class="fas fa-users me-2"></i>User Management
+            </h3>
+            @* <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Functionality Groups</li>
+                </ol>
+            </nav>*@
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">List of User</h5>
+            <button class="btn btn-primary register-btn" @onclick="NavigateToRegister">
+                <i class="fas fa-user-plus me-1"></i>Register
+            </button>
+        </div>
+
+        <div class="card-body">
+            <!-- Search and filter section -->
+            <div class="search-filter-bar mb-3">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" value="@searchText" placeholder="Search users..."
+                    @oninput="HandleSearch" />
+                </div>
+
+                <div class="filter-box">
+                    <select value="@selectedRole" @onchange="(e) => { selectedRole = e.Value?.ToString(); FilterUsers(); }">
+                        <option value="">All Roles</option>
+                        @foreach (var role in allRoles)
+                        {
+                            <option value="@role">@GetRoleDisplay(role)</option>
+                        }
+                    </select>
+                </div>
+
+                @*<select class="form-select" @bind="roleFilter" style="width:150px">
+                    <option value="">All Roles</option>
+                    <option value="1stAdmin">First Admin</option>
+                    <option value="2ndAdmin">Second Admin</option>
+                    <option value="VaultAuditor">Vault Auditor</option>
+                    <option value="Custodian">Custodian</option>
+                </select>*@
+            </div>
+            <!-- Page size selector on the left -->
+            <div class="pagination-options">
+                <div class="page-size-selector">
+                    <label>Show: </label>
+                    <select class="form-select form-select-sm" @onchange="OnPageSizeChanged">
+                        @foreach (var size in PageSizeOptions)
+                        {
+                            <option value="@size" selected="@(size == pageSize)">@size</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-responsive border">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Username</th>
+                            <th>Fullname</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Approval</th>
+                            <th style="width:120px">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var user in pagedUsers)
+                        {
+                            <tr>
+                                <td>@user.Username</td>
+                                <td>@user.Fullname</td>
+                                <td>@user.Email</td>
+                                <td>
+                                    <span class="badge @GetRoleBadgeClass(user.Role)">
+                                        @GetRoleDisplay(user.Role)
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge @(user.IsActive ? "bg-success" : "bg-danger")">
+                                        @(user.IsActive ? "Active" : "Inactive")
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="approval-badge @GetApprovalBadgeClass(user.IsApproved)">
+                                        @if (user.IsApproved == true)
+                                        {
+                                            <i class="fas fa-check-circle me-1"></i>
+                                            <span>Approved</span>
+                                        }
+                                        else if (user.IsApproved == false)
+                                        {
+                                            <i class="fas fa-times-circle me-1"></i>
+                                            <span>Rejected</span>
+                                        }
+                                        else
+                                        {
+                                            <i class="fas fa-clock me-1"></i>
+                                            <span>Pending</span>
+                                        }
+                                    </span>
+                                </td>
+                                
+                                <td>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-light dropdown-toggle"
+                                        type="button"
+                                        id="actionsDropdown-@user.Id"
+                                        data-bs-toggle="dropdown"
+                                        aria-expanded="false">
+                                            @*Actions*@
+                                            <i class="fas fa-gear"></i>
+                                        </button>
+                                        <ul class="dropdown-menu" aria-labelledby="actionsDropdown-@user.Id">
+                                            <li>
+                                                <button class="dropdown-item" @onclick="() => EditUser(user.Id)">
+                                                    <i class="fas fa-edit text-primary me-2"></i>Edit
+                                                </button>
+                                            </li>
+                                            <li>
+                                                <button class="dropdown-item" @onclick="() => ToggleUserStatus(user.Id)">
+                                                    <i class="fas @(user.IsActive ? "fa-user-slash text-danger" : "fa-user-check text-success") me-2"></i>
+                                                    @(user.IsActive ? "Deactivate" : "Activate")
+                                                </button>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <button class="dropdown-item text-danger" @onclick="async () => await DeleteUser(user.Id)">
+                                                    <i class="fas fa-trash-alt me-2"></i>Delete
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </div>
+
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pagination-container d-flex justify-content-around-content-between align-items-center">
+                <!-- Pagination component in the center -->
+                <!--<div class="mx-auto">-->
+                    <Pagination PageIndex="@currentPage"
+                                TotalPages="@totalPages"
+                                Radius="2"
+                                OnSelectedPage="@(async (page) => await ChangePage(page))" />
+               <!-- </div>-->
+
+                @*<!-- Centered pagination controls -->
+                <div class="pagination-controls">
+                    <button class="btn-pagination" @onclick="PreviousPage" disabled="@(currentPage == 1)">
+                        <i class="fas fa-chevron-left"></i> Prev
+                    </button>
+                    <span class="page-info">Page @currentPage of @totalPages</span>
+                    <button class="btn-pagination" @onclick="NextPage" disabled="@(currentPage == totalPages)">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+
+                </div>*@
+                <!-- Centered pagination controls with page numbers -->
+                @*<nav>
+                    <ul class="pagination mb-0">
+                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                            <button class="page-link" @onclick="PreviousPage" title="Previous">
+                                <i class="fas fa-angle-left"></i>Prev
+                            </button>
+                        </li>
+
+                        @if (totalPages > 1)
+                        {
+                            @if (currentPage > 2 && totalPages > 5)
+                            {
+                                <li class="page-item">
+                                    <button class="page-link" @onclick="() => ChangePage(1)">1</button>
+                                </li>
+                                @if (currentPage > 3)
+                                {
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                }
+                            }
+
+                            @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+                            {
+                                <li class="page-item @(i == currentPage ? "active" : "")">
+                                    <button class="page-link" @onclick="() => ChangePage(i)">@i</button>
+                                </li>
+                            }
+
+                            @if (currentPage < totalPages - 2 && totalPages > 5)
+                            {
+                                @if (currentPage < totalPages - 3)
+                                {
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                }
+                                <li class="page-item">
+                                    <button class="page-link" @onclick="() => ChangePage(totalPages)">@totalPages</button>
+                                </li>
+                            }
+                        }
+
+                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                            <button class="page-link" @onclick="NextPage" title="Next">
+                                Next<i class="fas fa-angle-right"></i>
+                            </button>
+                        </li>
+                    </ul>
+                </nav>*@
+                <!-- Showing info on the right -->
+                <div class="showing-info">
+                    <span>
+                        Showing @((currentPage - 1) * pageSize + 1)-@Math.Min(currentPage * pageSize, filteredUsers.Count) of @filteredUsers.Count users
+                    </span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+<!--</div>-->
+
+@code {
+    private List<User> allUsers = new List<User>();
+    private List<User> filteredUsers = new();
+    private List<User> pagedUsers = new();
+
+    private List<string> allRoles = UserRolesModel.AllRoles.ToList();
+
+    private string searchText = "";
+    private string selectedRole = "";
+
+    // Paging variables
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalPages;
+    private int[] PageSizeOptions = new[] { 5, 10, 20, 50 };
+
+    protected override async Task OnInitializedAsync()
+    {
+        allUsers = UserServices.GetAllUsers();
+        await FilterUsers();
+    }
+
+    private async Task HandleSearch(ChangeEventArgs e)
+    {
+        searchText = e.Value?.ToString() ?? "";
+        currentPage = 1; // Reset to first page when searching
+        await FilterUsers();
+    }
+
+    private async Task FilterUsers()
+    {
+        filteredUsers = allUsers
+            .Where(u => string.IsNullOrEmpty(searchText) ||
+                  (u.Username?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                  (u.Fullname?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                  (u.Email?.Contains(searchText, StringComparison.OrdinalIgnoreCase) ?? false))
+            .Where(u => string.IsNullOrEmpty(selectedRole) || u.Role == selectedRole)
+            .ToList();
+
+        totalPages = (int)Math.Ceiling((double)filteredUsers.Count / pageSize);
+        currentPage = Math.Max(1, Math.Min(currentPage, totalPages));
+        pagedUsers = filteredUsers
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async void OnPageSizeChanged(ChangeEventArgs e)
+    {
+        pageSize = int.Parse(e.Value?.ToString() ?? "10");
+        currentPage = 1;
+        await FilterUsers();
+    }
+    private async Task ChangePage(int page)
+    {
+        currentPage = page;
+        await UpdatePagedUsers();
+    }
+
+    private async Task UpdatePagedUsers()
+    {
+        pagedUsers = filteredUsers
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+        await InvokeAsync(StateHasChanged);
+    }
+    
+   
+
+
+    /*protected override async Task OnParametersSetAsync()
+    {
+        // This will be called whenever pageSize changes
+        await HandlePageSizeChange();
+    }
+
+    private async Task HandlePageSizeChange()
+    {
+        currentPage = 1;
+        await FilterUsers();
+    }*/
+
+    /*protected override void OnParametersSet()
+    {
+        ApplyFilters();
+    }*/
+
+
+    private void NavigateToRegister() => Navigation.NavigateTo("/register");
+        private void EditUser(int id) => Navigation.NavigateTo($"/users/edit/{id}");
+
+        private async Task DeleteUser(int id)
+        {
+            bool confirmed = await JsRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete user {id}?");
+            if (confirmed)
+            {
+                UserServices.DeleteUser(id);
+                allUsers = UserServices.GetAllUsers();
+                await FilterUsers();
+            }
+        }
+
+
+        private async Task ToggleUserStatus(int userId)
+        {
+            UserServices.ToggleUserStatus(userId);
+            allUsers = UserServices.GetAllUsers();
+            await FilterUsers();
+        }
+
+
+        private void ApproveUser(int userId, bool isApproved)
+        {
+            if (isApproved)
+            {
+                UserServices.ApproveUser(userId);
+            }
+            else
+            {
+                UserServices.RejectUser(userId);
+            }
+            FilterUsers();
+        }
+
+    /*private string GetRoleBadgeClass(string role)
+    {
+        return role switch
+        {
+            "1stAdmin" => "bg-primary",
+            "2ndAdmin" => "bg-info text-dark",
+            _ => "bg-secondary"
+        };
+    }*/
+
+    private string GetApprovalStatusDisplay(bool? isApproved)
+        {
+            return isApproved switch
+            {
+                true => "Approved",
+                false => "Rejected",
+                null => "Pending"
+            };
+        }
+
+        private string GetApprovalBadgeClass(bool? isApproved)
+        {
+            return isApproved switch
+            {
+                true => "badge-approved",
+                false => "badge-rejected",
+                null => "badge-pending"
+            };
+        }
+
+    private string GetRoleBadgeClass(string role)
+    {
+        return role switch
+        {
+            UserRolesModel.Admin1 => "bg-primary",
+            UserRolesModel.Admin2 => "bg-info text-dark",
+            UserRolesModel.VaultAuditor => "bg-warning text-dark",
+            UserRolesModel.Custodian => "bg-secondary",
+            _ => "bg-light"
+        };
+    }
+
+    private string GetRoleDisplay(string role)
+    {
+        return role switch
+        {
+            UserRolesModel.Admin1 => "1st Admin",
+            UserRolesModel.Admin2 => "2nd Admin",
+            UserRolesModel.VaultAuditor => "Vault Auditor",
+            UserRolesModel.Custodian => "Custodian",
+            _ => "Unknown"
+        };
+    }
+
+    
+}
+

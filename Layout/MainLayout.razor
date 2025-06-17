@@ -43,17 +43,14 @@
                 </div>
 
                 <!-- Profile -->
-                <img src="@ProfilePictureService.ProfilePictureUrl"
-                     class="profile-picture"
-                     @onclick="ToggleProfileDropdown" />
+                <!-- Replace your entire profile section with this: -->
+                <div class="profile-container position-relative">
+                    <div class="d-flex align-items-center gap-2" @onclick="ToggleProfileDropdown" @onclick:stopPropagation>
+                        <img src="@ProfilePictureService.ProfilePictureUrl" class="profile-picture" />
+                        <span>@userName <i class="fas fa-chevron-down"></i></span>
+                    </div>
 
-                <span class="dropdown-trigger" @onclick="ToggleProfileDropdown">
-                    @userName <i class="fas fa-chevron-down"></i>
-                </span>
-
-                @if (isProfileDropdownOpen)
-                {
-                    <div class="profile-dropdown-menu show">
+                    <div class="@GetDropdownClass()" @onclick:stopPropagation>
                         <a class="dropdown-item" href="/account/editprofile">
                             <i class="fas fa-user-edit me-2"></i>Edit Profile
                         </a>
@@ -64,7 +61,7 @@
                             <i class="fas fa-sign-out-alt me-2"></i>Logout
                         </a>
                     </div>
-                }
+                </div>
             </div>
         </div>
 
@@ -76,36 +73,44 @@
 
 <style>
     /* Profile Styles */
-    .profile-picture {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        object-fit: cover;
-        cursor: pointer;
-    }
-
-    .dropdown-trigger {
-        cursor: pointer;
+    .profile-container {
+        position: relative;
     }
 
     .profile-dropdown-menu {
         position: absolute;
-        top: 70px;
-        right: 20px;
+        right: 0;
+        top: calc(100% + 5px);
         background-color: var(--bs-body-bg);
         border: 1px solid var(--bs-border-color);
         border-radius: 0.5rem;
-        padding: 0.5rem;
-        z-index: 999;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        padding: 0.5rem 0;
+        z-index: 1050;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        opacity: 0;
+        transform: translateY(-10px);
+        visibility: hidden;
+        transition: all 0.3s ease;
+        min-width: 200px;
     }
 
+        .profile-dropdown-menu.show {
+            opacity: 1;
+            transform: translateY(0);
+            visibility: visible;
+        }
+
+        .profile-picture {
+            width: 38px;
+        }
+
     .dropdown-item {
-        display: flex;
-        align-items: center;
-        padding: 0.5rem 1rem;
+        padding: 0.5rem 1.5rem;
         color: var(--bs-body-color);
         text-decoration: none;
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
     }
 
         .dropdown-item:hover {
@@ -182,6 +187,12 @@
     private bool isProfileDropdownOpen = false;
     private bool showThemeDropdown = false;
     private string currentTheme = "light";
+    private string GetDropdownClass()
+    {
+        return isProfileDropdownOpen
+            ? "profile-dropdown-menu show"
+            : "profile-dropdown-menu";
+    }
 
     protected override async Task OnInitializedAsync()
     {

@@ -1,0 +1,11 @@
+﻿@page "/settings"
+@using GEMS.Services
+
+<Authorized AllowedRoles="@(new[] { UserRolesModel.Admin1 })">
+    <PageTitle>System Settings</PageTitle>
+    
+    <div class="settings-panel">
+        <h3><i class="fas fa-cog me-2"></i>System Configuration</h3>
+        <!-- Your admin settings components here -->
+    </div>
+</Authorized>

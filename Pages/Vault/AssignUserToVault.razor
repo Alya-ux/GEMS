@@ -1,0 +1,364 @@
+﻿@page "/assign-user-to-vault"
+@using GEMS.Models
+@using GEMS.Services
+@inject UserServices UserService
+@inject IVaultService VaultService
+@inject NavigationManager Navigation
+
+<div class="assign-container">
+    <h3 class="page-title">Assign User to Vault</h3>
+
+    <div class="assignment-wrapper shadow">
+        <!-- Left Panel - User List -->
+        <div class="user-list-panel">
+            <h4 class="panel-title">User List</h4>
+            <div class="search-box">
+                <input @bind="searchTerm" 
+                       @oninput="() => FilterUsers()"
+                       placeholder="Search users..." 
+                       class="search-input" />
+            </div>
+
+            <div class="table-responsive border" style="max-height: 60vh; overflow-y: auto;">
+                <table class="table table-hover tabled-striped">
+                    <thead class="sticky-top bg-light">
+                        <tr>
+                            <th style="width: 40px;"></th>
+                            <th>Full Name</th>
+                            <th>Email</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (filteredCustodians.Any())
+                        {
+                            @foreach (var user in filteredCustodians)
+                            {
+                                <tr class="@(selectedUsers.Any(u => u.Id == user.Id) ? "table-primary" : "")">
+                                    <td>
+                                        <input type="checkbox" 
+                                            class="form-checked-input"
+                                               checked="@selectedUsers.Any(u => u.Id == user.Id)"
+                                               @onchange="@((e) => ToggleUserSelection(e, user))" />
+                                    </td>
+                                    <td>@user.Fullname</td>
+                                    <td>@user.Email</td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="3" class="no-users">No users found</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Right Panel - Vault Assignment -->
+        <div class="vault-assignment-panel">
+            <h4 class="panel-title">Vault Assignment</h4>
+
+            <div class="vault-selection">
+                <div class="form-group">
+                    <label class="form-label">Branch:</label>
+                    <select @bind="selectedBranch" 
+                            class="form-control">
+                        <option value="">Select Branch</option>
+                        @foreach (var branch in availableBranches)
+                        {
+                            <option value="@branch">@branch</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Vault:</label>
+                    <select @bind="selectedVaultId"
+                            disabled="@(string.IsNullOrEmpty(selectedBranch))"
+                            class="form-control">
+                        <option value="">Select Vault</option>
+                        @foreach (var vault in filteredVaults)
+                        {
+                            <option value="@vault.Id">@vault.Name</option>
+                        }
+                    </select>
+                </div>
+
+                @*<div class="vault-info">
+                    <div>Branch: @(selectedVault?.Branch ?? "--")</div>
+                    <div>State: @(selectedVault?.State ?? "--")</div>
+                </div>*@
+            </div>
+
+            <div class="unlock-rules">
+                <h5 class="section-title">Unlock Rules:</h5>
+
+                @* Replace the existing time window input with this *@
+                @*<div class="form-group">
+                    <label class="form-label">Time Window:</label>
+                    <div class="time-range-picker">
+                        <div class="time-picker-group">
+                            <label>Start time</label>
+                            <input type="time"
+                                   @bind="startTime"
+                                   class="form-control time-input"
+                                   step="900" /> @* 15 minute steps 
+                        </div>
+                        <div class="time-picker-group">
+                            <label>End time</label>
+                            <input type="time"
+                                   @bind="endTime"
+                                   class="form-control time-input"
+                                   step="900" /> @* 15 minute steps 
+                        </div>
+                    </div>
+                </div>*@
+                <div class="form-group">
+                    <label class="form-label">Time Window:</label>
+                    <div class="time-range-picker">
+                        <div class="time-picker-group">
+                            <label>Start time</label>
+                            <input type="time" class="form-control time-input"
+                            @bind:format="HH:mm" />
+                        </div>
+                        <div class="time-picker-group">
+                            <label>End time</label>
+                            <input type="time" class="form-control time-input"
+                                @bind:format="HH:mm" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="assigned-users">
+                <h5 class="section-title">Assigned Users:</h5>
+                @if (selectedUsers.Any())
+                {
+                    <div class="selected-users-list">
+                        @foreach (var user in selectedUsers)
+                        {
+                            <div class="selected-user-item">
+                                <span>@user.Fullname</span>
+                                <button @onclick="() => RemoveSelectedUser(user.Id)"
+                                        class="btn btn-sm btn-outline-danger">
+                                    Remove
+                                </button>
+                            </div>
+                        }
+                    </div>
+                }
+                else if (!assignedUsers.Any())
+                {
+                    <p class="no-assignments">No users assigned to this vault</p>
+                }
+            </div>
+
+            <div class="action-buttons">
+                <button @onclick="SaveAssignment"
+                        
+                        class="btn-primary">
+                    Submit
+                </button>
+                <button @onclick="Cancel" class="btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    @if (showConfirmationModal)
+    {
+        <div class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Assignment</h5>
+                </div>
+                <div class="modal-body">
+                    <p>Assign @selectedUsers.Count users to @selectedVault?.Name?</p>
+                    <p>Unlock Rules: @startTime.ToString("hh\\:mm") to @endTime.ToString("hh\\:mm")</p>
+                </div>
+                <div class="modal-footer">
+                    <button @onclick="ConfirmAssignment" class="btn-primary">Confirm</button>
+                    <button @onclick="CancelAssignment" class="btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private string searchTerm = string.Empty;
+    private List<User> selectedUsers = new();
+    private string selectedBranch = string.Empty;
+    private int selectedVaultId;
+    private VaultModel? selectedVault;
+    //private string timeWindow = string.Empty;
+    private bool showConfirmationModal = false;
+    private bool canAssignVaults = true;
+    // Replace the existing timeWindow field with these:
+    private TimeOnly startTime = new(8, 0); // Default 08:00
+    private TimeOnly endTime = new(17, 0); // Default 17:00
+
+    private List<User> allUsers = new();
+    private List<VaultModel> availableVaults = new();
+    private List<AssignmentModel> assignedUsers = new();
+    private List<string> availableBranches = new();
+    private IEnumerable<VaultModel> filteredVaults => 
+        string.IsNullOrEmpty(selectedBranch) 
+            ? availableVaults 
+            : availableVaults.Where(v => v.Branch == selectedBranch);
+
+    //private bool CanSave => selectedUsers.Any() && selectedVault != null;
+
+    private IEnumerable<User> filteredCustodians = new List<User>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            allUsers = UserService.GetAllUsers();
+            availableVaults = await VaultService.GetAvailableVaultsAsync();
+            availableBranches = availableVaults.Select(v => v.Branch).Distinct().ToList();
+            filteredCustodians = allUsers
+                .Where(u => u.Role == UserRolesModel.Custodian)
+                .OrderBy(u => u.Fullname);
+            await LoadAssignedUsers();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void FilterUsers()
+    {
+        filteredCustodians = allUsers
+            .Where(u => u.Role == UserRolesModel.Custodian)
+            .Where(u => string.IsNullOrEmpty(searchTerm) || 
+                       u.Fullname.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                       u.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(u => u.Fullname);
+    }
+
+    private void ToggleUserSelection(ChangeEventArgs e, User user)
+    {
+        var isChecked = (bool)e.Value;
+        if (isChecked)
+        {
+            if (!selectedUsers.Any(u => u.Id == user.Id))
+            {
+                selectedUsers.Add(user);
+            }
+        }
+        else
+        {
+            selectedUsers.RemoveAll(u => u.Id == user.Id);
+        }
+    }
+
+    private async Task OnBranchSelected(ChangeEventArgs e)
+    {
+        selectedBranch = e.Value?.ToString() ?? string.Empty;
+        selectedVaultId = 0;
+        selectedVault = null;
+        await LoadAssignedUsers();
+    }
+
+    private async Task OnVaultSelected(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int vaultId))
+        {
+            selectedVaultId = vaultId;
+            selectedVault = availableVaults.FirstOrDefault(v => v.Id == vaultId);
+            await LoadAssignedUsers();
+        }
+    }
+
+    private async Task LoadAssignedUsers()
+    {
+        if (selectedVault != null)
+        {
+            assignedUsers = await VaultService.GetAssignedUsersAsync(selectedVault.Id);
+
+            foreach (var assignment in assignedUsers)
+            {
+                var user = allUsers.FirstOrDefault(u => u.Id == assignment.UserId);
+                if (user != null)
+                {
+                    assignment.UserName = user.Fullname;
+                    assignment.UserRole = user.Role;
+                }
+            }
+        }
+        else
+        {
+            assignedUsers = new List<AssignmentModel>();
+        }
+    }
+
+    private async Task RemoveAssignment(int assignmentId)
+    {
+        if (canAssignVaults)
+        {
+            await VaultService.RemoveAssignmentAsync(assignmentId);
+            await LoadAssignedUsers();
+        }
+    }
+
+    private void RemoveSelectedUser(int userId)
+    {
+        selectedUsers.RemoveAll(u => u.Id == userId);
+        StateHasChanged(); // Refresh the UI
+    }
+
+    private void SaveAssignment()
+    {
+       
+            showConfirmationModal = true;
+    }
+
+    private async Task ConfirmAssignment()
+    {
+        showConfirmationModal = false;
+
+        if (selectedUsers.Any() && selectedVault != null)
+        {
+            foreach (var user in selectedUsers)
+            {
+                var assignment = new AssignmentModel
+                {
+                    UserId = user.Id,
+                    VaultId = selectedVault.Id,
+                    StartTime = startTime.ToTimeSpan(),
+                    EndTime = endTime.ToTimeSpan(),
+                    //TimeWindow = timeWindow,
+                    UserName = user.Fullname,
+                    UserRole = user.Role,
+                    VaultName = selectedVault.Name,
+                    Branch = selectedVault.Branch
+                };
+
+                await VaultService.AssignUserToVaultAsync(assignment);
+            }
+            
+            await LoadAssignedUsers();
+            selectedUsers.Clear();
+
+            // Reset to default times
+            //startTime = new TimeSpan(8, 0, 0);
+            //endTime = new TimeSpan(17, 0, 0);
+        }
+    }
+
+    private void CancelAssignment()
+    {
+        showConfirmationModal = false;
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/vaults");
+    }
+}

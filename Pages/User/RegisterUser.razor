@@ -1,0 +1,531 @@
+﻿@page "/register"
+@layout MainLayout
+@using System.ComponentModel.DataAnnotations
+@using GEMS.Models
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject UserServices UserServices
+@inject FunctionalityGroupService FunctionalityGroupService
+@inject UserRolesService userRolesService
+
+
+<div class="registration-container">
+    <div class="form-header">
+        <h2 class="form-title">
+            <i class="fas fa-user-plus me-2"></i>Register New User
+        </h2>
+    </div>
+
+    <EditForm Model="@newUser" OnValidSubmit="@HandleSubmit">
+        <DataAnnotationsValidator />
+        <div class="form-card border">
+            <!-- Search User -->
+            <div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-search me-2"></i>Search Existing User
+                </label>
+                <div class="search-container">
+                    <input type="text" class="form-control"
+                    @bind="@searchTerm"
+                    @oninput="@PerformLookup"
+                    placeholder="Enter fullname, email or username..." />
+                    @if (filteredUsers.Count > 0)
+                    {
+                        <div class="dropdown-results">
+                            @foreach (var user in filteredUsers)
+                            {
+                                <div class="dropdown-item" @onclick="@(() => SelectUser(user))">
+                                    <div class="user-id-badge">Username: @user.Username</div>
+                                    <div>@user.Fullname</div>
+                                    <small class="text-muted">@user.Email</small>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- User Details -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-id-card me-2"></i>Username
+                    </label>
+                    <InputText class="form-control disabled-field"
+                    @bind-Value="@newUser.Username"
+                    readonly="true" />
+                    @*<InputText class="form-control" @bind-Value="@newUser.Username" readonly="@isUserSelected"/>*@
+                </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-user me-2"></i>Fullname
+                    </label>
+                    <InputText class="form-control disabled-field"
+                    @bind-Value="@newUser.Fullname"
+                    readonly="true" />
+                    @*<InputText class="form-control" @bind-Value="@newUser.Fullname" readonly="@isUserSelected" />*@
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-envelope me-2"></i>Email
+                </label>
+                <InputText class="form-control disabled-field"
+                @bind-Value="@newUser.Email"
+                readonly="true" />
+                @*<InputText class="form-control" @bind-Value="@newUser.Email" readonly="@isUserSelected" />*@
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-user-tag me-2"></i>User Role
+                </label>
+                @if (isLoadingGroups)
+                {
+                    <div class="form-control">Loading roles...</div>
+                }
+                else
+                {
+                    <InputSelect class="form-select" @bind-Value="@selectedGroupId" @onchange="OnRoleSelected">
+                        <option value="0">-- Select Role --</option>
+                        @foreach (var group in functionalityGroups.Where(g => g.Status == FunctionalityGroupModel.GroupStatuses.Approved))
+                        {
+                            <option value="@group.Id">@group.GroupName</option>
+                        }
+                    </InputSelect>
+                    <!-- Add validation message display -->
+                    @if (!string.IsNullOrEmpty(roleValidationMessage))
+                    {
+                        <div class="text-danger small">@roleValidationMessage</div>
+                    }
+
+                    @*@if (selectedGroup != null)
+                    {
+                        <div class="mt-2 p-2 bg-light rounded">
+                            <h6>Permissions:</h6>
+                            <div class="d-flex flex-wrap gap-1">
+                                @foreach (var perm in selectedGroup.Permissions)
+                                {
+                                    <span class="badge bg-primary">@GetPermissionDisplayName(perm)</span>
+                                }
+                                @if (!selectedGroup.Permissions.Any())
+                                {
+                                    <span class="text-muted">No permissions</span>
+                                }
+                            </div>
+                        </div>
+                    }*@
+                }
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-user-shield me-2"></i>Functionality Access
+                    @*<span class="text-muted small">(Optional)</span>*@
+                </label>
+                <div class="card permissions-card">
+                    <div class="card-body p-0">
+                        <div class="row m-0">
+                            <div class="col-md-12 p-0">
+                                <!-- Full width column, no padding -->
+                                <div style="max-height: 100px; overflow-y: auto;">
+                                    <!-- Scrollable container -->
+                                    <div class="p-3">
+                                        <!-- Add padding inside scrollable area -->
+                                        @foreach (var (permission, isDefault) in GetOrderedPermissions())
+                                        {
+                                            <div class="col-md-6 mb-2 @(isDefault ? "default-permission" : "")">
+                                                <div class="form-check">
+                                                    <input type="checkbox"
+                                                           class="form-check-input"
+                                                           id="perm_@permission"
+                                                           checked="@(isDefault || additionalPermissions.Contains(permission))"
+                                                           @onchange="@(e => { if (!isDefault) ToggleAdditionalPermission(permission, (bool)e.Value); })" />
+                                                    <label class="form-check-label" for="perm_@permission">
+                                                        @GetPermissionDisplayName(permission)
+                                                        
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @*<div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-user-tag me-2"></i>User Role
+                </label>
+                <InputSelect class="form-select" @bind-Value="@newUser.Role">
+                    <option value="">-- Select Role --</option>
+                    @foreach (var role in UserRolesModel.AllRoles)
+                    {
+                        <option value="@role">@GetRoleDisplayName(role)</option>
+                    }
+                </InputSelect>
+            </div>*@
+
+            @*<div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-users-cog me-2"></i>Functionality Groups
+                    <span class="text-muted small"> (Optional)</span>
+                </label>
+                @if (isLoadingGroups)
+                {
+                    <div class="form-control">Loading groups...</div>
+                }
+                else if (functionalityGroups == null || !functionalityGroups.Any())
+                {
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>No active functionality groups available
+                    </div>
+                }
+                else
+                {
+                    <div class="border rounded p-3 bg-light">
+                        @foreach (var group in functionalityGroups.Where(g => g.Status == FunctionalityGroupModel.GroupStatuses.Approved))
+                        {
+                            <div class="form-check mb-2">
+                                <input type="checkbox"
+                                class="form-check-input"
+                                id="group_@group.Id"
+                                checked="@newUser.SelectedFunctionalityGroupIds.Contains(group.Id)"
+                                @onchange="@(e => { ToggleGroupSelection(group.Id, (bool)e.Value); })" />
+                                <label class="form-check-label" for="group_@group.Id">
+                                    <span class="fw-semibold">@group.GroupName</span>
+                                    <span class="text-muted small d-block mt-1">
+                                        @string.Join(", ", group.Permissions.Select(GetPermissionDisplayName))
+                                    </span>
+                                </label>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>*@
+
+            <!-- Password Field -->
+            <!-- <div class="form-group">
+            <label class="form-label">
+            <i class="fas fa-lock me-2"></i>Password
+            </label>
+            <InputText type="password" class="form-control" @bind-Value="@newUser.Password" />
+            <small class="text-muted">Password must be at least 8 characters long</small>
+            </div>-->
+
+            <div class="d-flex justify-content-end gap-2 mt-3">
+                <button type="button" class="btn btn-secondary" @onclick="Cancel">
+                    <i class="fas fa-times me-2"></i>Cancel
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-user-check me-2"></i>Register User
+                </button>
+            </div>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    private RegisterModel newUser = new();
+    private string searchTerm = string.Empty;
+    private List<LookupUser> filteredUsers = new();
+    private int selectedGroupId = 0;
+    private FunctionalityGroupModel? selectedGroup => functionalityGroups.FirstOrDefault(g => g.Id == selectedGroupId);
+    // Add this flag to track if a user has been selected
+   // private bool isUserSelected = false;
+    // Add loading state for user search
+    private bool isSearching = false;
+    // Add validation for role selection
+    private string roleValidationMessage = string.Empty;
+    private string errorMessage = string.Empty;
+
+    private List<FunctionalityGroupModel> functionalityGroups = new();
+    private bool isLoadingGroups = true;
+
+    private List<string> additionalPermissions = new();
+    private List<string> AllPermissions = new()
+    {
+        FunctionalityGroupModel.Permission.AddUsers,
+        FunctionalityGroupModel.Permission.UpdateUsers,
+        FunctionalityGroupModel.Permission.DeleteUsers,
+        FunctionalityGroupModel.Permission.AddVaults,
+        FunctionalityGroupModel.Permission.UpdateVaults,
+        FunctionalityGroupModel.Permission.DeleteVaults,
+        FunctionalityGroupModel.Permission.ApproveRegistrations,
+        FunctionalityGroupModel.Permission.ApproveVaultAssignments,
+        FunctionalityGroupModel.Permission.SetUnlockRules,
+        FunctionalityGroupModel.Permission.AssignCustodians
+    };
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadFunctionalityGroups();
+    }
+
+    private async Task LoadFunctionalityGroups()
+    {
+        try
+        {
+            functionalityGroups = await FunctionalityGroupService.GetAllGroupsAsync();
+
+            // Add debug logging:
+            Console.WriteLine($"Loaded {functionalityGroups?.Count ?? 0} groups");
+            if (functionalityGroups != null)
+            {
+                foreach (var group in functionalityGroups)
+                {
+                    Console.WriteLine($"Group: {group.GroupName}, Status: {group.Status}");
+                }
+            }
+
+            isLoadingGroups = false;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading groups: {ex.Message}");
+            isLoadingGroups = false;
+        }
+    }
+
+    // Add method to check if permission is default for role
+    private bool IsDefaultPermission(string permission)
+    {
+        return selectedGroup?.Permissions?.Contains(permission) ?? false;
+    }
+
+    // Update permission display to show default permissions differently
+    private string GetPermissionCssClass(string permission)
+    {
+        return IsDefaultPermission(permission) ? "badge bg-primary" : "badge bg-secondary";
+    }
+
+    private string GetRoleDisplayName(string role)
+    {
+        return role switch
+        {
+            UserRolesModel.Admin1 => "1st Admin",
+            UserRolesModel.Admin2 => "2nd Admin",
+            UserRolesModel.VaultAuditor => "Vault Auditor",
+            UserRolesModel.Custodian => "Custodian",
+            _ => role
+        };
+    }
+
+    private string GetPermissionDisplayName(string permission)
+    {
+        return permission switch
+        {
+            "AddUsers" => "Add Users",
+            "UpdateUsers" => "Update Users",
+            "DeleteUsers" => "Delete Users",
+            "AddVaults" => "Add Vaults",
+            "UpdateVaults" => "Update Vaults",
+            "DeleteVaults" => "Delete Vaults",
+            "ApproveRegistrations" => "Approve/Reject User Registrations",
+            "ApproveVaultAssignments" => "Approve/Reject Vault Assignments",
+            "SetUnlockRules" => "Set Unlock Rules",
+            "AssignCustodians" => "Assign Custodians",
+            _ => permission
+        };
+    }
+
+    private List<LookupUser> allUsers = new()
+    {
+        new LookupUser { Username = "EMP1011", Fullname = "Abu bin Ali", Email = "abu@example.com" },
+        new LookupUser { Username = "EMP1012", Fullname = "Jimin Park", Email = "Jimin.P@example.com" },
+        new LookupUser { Username = "EMP1013", Fullname = "Daniel Lee", Email = "Daniellee@example.com" },
+        new LookupUser { Username = "EMP1014", Fullname = "Alicia Wong", Email = "alicia.wong@example.com" },
+        new LookupUser { Username = "EMP1015", Fullname = "Michael Jordan", Email = "michael@example.com" },
+        new LookupUser { Username = "EMP1016", Fullname = "Lisa Kim", Email = "lisa.kim@example.com" },
+        new LookupUser { Username = "EMP1017", Fullname = "Jessica Park", Email = "Jess123.wong@example.com" },
+        new LookupUser { Username = "EMP1018", Fullname = "Priya Patel", Email = "priya.patel@example.com" },
+        new LookupUser { Username = "EMP1019", Fullname = "Mohammed Abdullah", Email = "m.abdullahm@example.com" },
+        new LookupUser { Username = "EMP1020", Fullname = "Wei Zhang", Email = "wei.zhang@example.com" },
+        new LookupUser { Username = "EMP1021", Fullname = "Aisha Mohammed", Email = "aisha.m@example.com" },
+        new LookupUser { Username = "EMP1022", Fullname = "Yuki Tanaka", Email = "y.tanaka@example.com" }
+
+    };
+
+    private async Task PerformLookup(ChangeEventArgs e)
+    {
+        isSearching = true;
+        searchTerm = e.Value?.ToString() ?? string.Empty;
+
+        // Simulate async search (replace with actual API call)
+        await Task.Delay(300);
+
+        filteredUsers = allUsers
+            .Where(u => u.Fullname.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                       u.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                       u.Username.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            .Take(5)
+            .ToList();
+
+        isSearching = false;
+        StateHasChanged();
+    }
+
+    private void SelectUser(LookupUser user)
+    {
+        newUser.Username = user.Username;
+        newUser.Fullname = user.Fullname;
+        newUser.Email = user.Email;
+        filteredUsers.Clear();
+        searchTerm = string.Empty;
+        //isUserSelected = true; // Set the flag when a user is selected
+        StateHasChanged();
+    }
+
+    private List<(string Permission, bool IsDefault)> GetOrderedPermissions()
+    {
+        var defaultPerms = selectedGroup?.Permissions ?? new List<string>();
+
+        return AllPermissions
+            .Select(p => (Permission: p, IsDefault: defaultPerms.Contains(p)))
+            .OrderByDescending(x => x.IsDefault) // Default permissions first
+            .ThenBy(x => x.Permission)          // Then alphabetically
+            .ToList();
+    }
+
+    private void ToggleAdditionalPermission(string permission, bool isChecked)
+    {
+        if (isChecked)
+        {
+            if (!additionalPermissions.Contains(permission))
+                additionalPermissions.Add(permission);
+        }
+        else
+        {
+            additionalPermissions.Remove(permission);
+        }
+    }
+
+    private void ToggleGroupSelection(int groupId, bool isSelected)
+    {
+        if (isSelected)
+        {
+            if (!newUser.SelectedFunctionalityGroupIds.Contains(groupId))
+            {
+                newUser.SelectedFunctionalityGroupIds.Add(groupId);
+            }
+        }
+        else
+        {
+            newUser.SelectedFunctionalityGroupIds.Remove(groupId);
+        }
+    }
+
+    private bool ValidateForm()
+    {
+        var isValid = true;
+
+        if (selectedGroupId == 0)
+        {
+            roleValidationMessage = "Please select a role";
+            isValid = false;
+        }
+        else
+        {
+            roleValidationMessage = string.Empty;
+        }
+
+        // Add other validations as needed
+        return isValid;
+    }
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            if (!ValidateForm()) return;
+
+            var selectedGroup = functionalityGroups.FirstOrDefault(g => g.Id == selectedGroupId);
+
+            var userToAdd = new User
+            {
+                Username = newUser.Username,
+                Fullname = newUser.Fullname,
+                Email = newUser.Email,
+                Role = selectedGroup?.GroupName ?? string.Empty,
+                FunctionalityGroupIds = new List<int> { selectedGroupId },
+                FunctionalityGroupNames = new List<string> { selectedGroup?.GroupName ?? string.Empty },
+                // If you add Permissions to User model:
+                Permissions = additionalPermissions,
+                IsActive = true
+            };
+
+            UserServices.AddUser(userToAdd);
+            Navigation.NavigateTo("/users");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error registering user: {ex.Message}";
+        }
+    }
+
+    private void OnRoleSelected(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int groupId) && groupId > 0)
+        {
+            selectedGroupId = groupId;
+            var selectedGroup = functionalityGroups.FirstOrDefault(g => g.Id == groupId);
+
+            // Set default permissions for the role
+            additionalPermissions.Clear();
+            if (selectedGroup?.Permissions != null)
+            {
+                additionalPermissions.AddRange(selectedGroup.Permissions);
+            }
+        }
+        else
+        {
+            selectedGroupId = 0;
+            additionalPermissions.Clear();
+        }
+        StateHasChanged();
+    }
+
+    private List<string> GetDefaultPermissionsForRole(int groupId)
+    {
+        var group = functionalityGroups.FirstOrDefault(g => g.Id == groupId);
+        return group?.Permissions ?? new List<string>();
+    }
+
+    private void Submit()
+    {
+        Navigation.NavigateTo("/users");
+    }
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/users"); // Or wherever you want to redirect
+    }
+
+    public class RegisterModel
+    {
+        [Required]
+        public string Username { get; set; } = string.Empty;
+        [Required]
+        public string Fullname { get; set; } = string.Empty;
+        [Required]
+        public string Email { get; set; } = string.Empty;
+        [Required]
+        public string Role { get; set; } = string.Empty;
+        public List<int> SelectedFunctionalityGroupIds { get; set; } = new();
+       // [Required, MinLength(8, ErrorMessage = "Password must be at least 8 characters long")]
+        //public string Password { get; set; } = string.Empty; // Added password field
+    }
+
+    public class LookupUser
+    {
+        public string Username { get; set; } = string.Empty;
+        public string Fullname { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+    }
+}
+

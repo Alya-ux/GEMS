@@ -2,7 +2,7 @@
 {
     public class ProfilePictureService
     {
-        public string ProfilePictureUrl { get; private set; } = "/images/profile-picture.png";
+        public string ProfilePictureUrl { get; private set; } = "/Images/profile-picture.png";
 
         public event Action? OnProfilePictureChanged;
         public void SetProfilePictureUrl(string url)

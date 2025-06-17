@@ -4,15 +4,17 @@
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 @inject UserServices UserServices
+@inject UserRolesService UserRolesService
 
 <EditForm Model="@loginModel" OnValidSubmit="HandleValidSubmit">
     <DataAnnotationsValidator />
     <div class="login-layout">
         <div class="login-form">
             <div style="text-align: center; margin: 5px;">
-                <img src="/images/Logo2.png" alt="Logo" style="max-width: 100px; height: auto;" />
+                <img src="/Images/Logo9.png" alt="Logo" style="max-width: 75px; height: auto;" />
             </div>
-            <div class="text">LOGIN</div>
+            <div class="text">Grill Entrance<br />Management System <br />(GEMS)</div> 
+            @*<div class="text">LOGIN</div>*@
 
             @if (!string.IsNullOrEmpty(errorMessage))
             {
@@ -23,7 +25,7 @@
                 <div class="fa fa-envelope"></div>
                 <InputText id="email" @bind-Value="loginModel.Email" placeholder="Email" class="input-field" />
             </div>
-            <ValidationMessage For="@(() => loginModel.Email)" />
+            <ValidationMessage For="@(() => loginModel.Email)" style="font-size: 12px"/>
 
             <div class="field">
                 <div class="fa fa-lock"></div>
@@ -32,13 +34,13 @@
                     <i class="fa-regular @(IsPasswordVisible ? "fa-eye" : "fa-eye-slash")"></i>
                 </span>
             </div>
-            <ValidationMessage For="@(() => loginModel.Password)" />
+            <ValidationMessage For="@(() => loginModel.Password)" style="font-size: 12px" />
 
             <button class="btn-login" type="submit">LOGIN</button>
 
-            <div class="link">
+            <!--<div class="link">
                 <a href="forgot-password">Forgot Password?</a>
-            </div>
+            </div>-->
         </div>
     </div>
 </EditForm>
@@ -51,12 +53,12 @@
 
     private void TogglePasswordVisibility() => IsPasswordVisible = !IsPasswordVisible;
 
-    private List<User> users = new()
+    /*private List<User> users = new()
     {
         new User { Email = "admin1@example.com", Password = "admin123", Role = "1stAdmin" },
         new User { Email = "admin2@example.com", Password = "admin456", Role = "2ndAdmin" },
         new User { Email = "user@example.com", Password = "user123", Role = "User" }
-    };
+    };*/
 
     protected override async Task OnInitializedAsync()
     {
@@ -84,7 +86,21 @@
         }
     }
 
-    private void NavigateToRoleDashboard(string role)
+        private void NavigateToRoleDashboard(string role)
+        {
+            try
+            {
+                var route = UserRolesService.GetDashboardRoute(role);
+                NavigationManager.NavigateTo(route);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                NavigationManager.NavigateTo("/access-denied");
+            }
+        }
+
+
+    /*private void NavigateToRoleDashboard(string role)
     {
         if (role == "1stAdmin")
             NavigationManager.NavigateTo("/dashboard/firstadmin");
@@ -92,7 +108,7 @@
             NavigationManager.NavigateTo("/dashboard/secondadmin");
         else
             NavigationManager.NavigateTo("/dashboard/user");
-    }
+    }*/
 
     public class LoginModel
     {

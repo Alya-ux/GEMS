@@ -1,0 +1,98 @@
+﻿.functionality-groups-container {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    background-color: #fff;
+    border-radius: 0.5rem;
+}
+
+.page-title {
+    color: #212529;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.breadcrumb {
+    background-color: transparent;
+    padding: 0;
+    margin-bottom: 1.5rem;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+    padding: 1rem 1.25rem;
+}
+
+.table {
+    margin-bottom: 0;
+}
+
+    .table th {
+        font-weight: 600;
+        color: #495057;
+        vertical-align: middle;
+    }
+
+.sortable {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+    .sortable:hover {
+        background-color: rgba(0, 0, 0, 0.03);
+    }
+
+.badge {
+    font-weight: 500;
+    padding: 0.35em 0.65em;
+}
+
+.permissions-card {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+}
+
+/* Modal enhancements */
+.modal-content {
+    border: none;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+    padding: 1rem 1.25rem;
+}
+
+.modal-body {
+    padding: 1.25rem;
+}
+
+.modal-footer {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid #e9ecef;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .permissions-card .col-md-6 {
+        width: 100%;
+    }
+
+    .btn-group {
+        display: flex;
+        width: 100%;
+    }
+
+        .btn-group .btn {
+            flex: 1;
+        }
+}

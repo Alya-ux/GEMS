@@ -1,0 +1,396 @@
+﻿@page "/vaults/add"
+@page "/vaults/add/{Branch}"
+@page "/vaults/add/section/{Section}"
+@page "/vaults/add/branch/{Branch}/section/{Section}"
+@*@page "/vaults/add/{Branch}/{Section}"*@
+@layout MainLayout
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject IVaultService VaultService
+
+<div class="vault-edit-container">
+    <div class="edit-header">
+        <h3>Add New Vault</h3>
+        @*@if (!string.IsNullOrEmpty(Branch))
+        {
+            <div class="section-alert">
+                <i class="fas fa-exclamation-circle"></i>
+                Preset Branch: @Branch
+            </div>
+        }*@
+    </div>
+
+    <!-- Navigation tabs -->
+    <div class="edit-tabs">
+        <button class="@GetTabClass("details")" @onclick="@(() => NavigateToSection("details"))">
+            Vault Details
+        </button>
+        <button class="@GetTabClass("rules")" @onclick="@(() => NavigateToSection("rules"))">
+            Unlock Rules
+        </button>
+        @*<button class="@GetTabClass("access")" @onclick="@(() => NavigateToSection("access"))">
+            Access Control
+        </button>*@
+    </div>
+
+    <div class="edit-content">
+        @if (activeSection == "details" || string.IsNullOrEmpty(Section))
+        {
+            <div class="vault-details">
+                <div class="form-group">
+                    <label>State:</label>
+                    <select class="form-control" @bind="selectedState" disabled="@(!string.IsNullOrEmpty(Branch))">
+                        <option value="">Select State</option>
+                        @foreach (var state in availableStates)
+                        {
+                            <option value="@state">@state</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Branch:</label>
+                    <select class="form-control" @bind="newVault.Branch" disabled="@(string.IsNullOrEmpty(selectedState) && string.IsNullOrEmpty(Branch))">
+                        <option value="">Select Branch</option>
+                        @if (!string.IsNullOrEmpty(Branch))
+                        {
+                            <option value="@Branch" selected>@Branch</option>
+                        }
+                        else
+                        {
+                            @foreach (var branch in filteredBranches)
+                            {
+                                <option value="@branch">@branch</option>
+                            }
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Vault Name:</label>
+                    <InputText @bind-Value="newVault.Name" class="form-control" placeholder="Enter vault name" />
+                </div>
+
+                <div class="form-group">
+                    <label>Controller ID:</label>
+                    <InputText @bind-Value="newVault.ControllerID" class="form-control" placeholder="Enter controller ID" />
+                </div>
+
+                <div class="form-group">
+                    <label>Controller IP:</label>
+                    <InputText @bind-Value="newVault.ControllerIP" class="form-control" placeholder="Enter IP address" />
+                </div>
+            </div>
+        }
+        else if (activeSection == "rules")
+        {
+            <div class="unlock-rules">
+                <h4 class="section-header">Unlock Rules</h4>
+
+                <div class="form-group">
+                    <label>Required Custodians:</label>
+                    <select class="form-control" @bind="newVault.RequiredCustodians">
+                        @for (int i = 1; i <= 5; i++)
+                        {
+                            <option value="@i">@i</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        }
+        @*else if (activeSection == "access")
+        {
+            <div class="access-control">
+                <h4 class="section-header">Access Control</h4>
+                <p>Configure access permissions for this vault.</p>
+                <!-- Add your access control components here -->
+            </div>
+        }*@
+    </div>
+
+    <div class="edit-actions">
+        <button class="btn btn-outline-secondary" @onclick="Cancel">CANCEL</button>
+        <button class="btn btn-primary" @onclick="SubmitForApproval" disabled="@(!IsFormValid)">
+            SUBMIT
+        </button>
+    </div>
+</div>
+
+@if (showApprovalModal)
+{
+    <div class="modal-overlay">
+        <div class="approval-modal">
+            <h4>Submit for approval?</h4>
+            <p>This vault will be reviewed by the 2nd admin.</p>
+            <div class="modal-actions">
+                <button class="btn btn-confirm" @onclick="ConfirmSubmission">CONFIRM</button>
+                <button class="btn btn-back" @onclick="CancelSubmission">BACK</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string Branch { get; set; }
+    [Parameter]
+    public string Section { get; set; }
+
+    private bool showApprovalModal = false;
+    private VaultModel newVault = new VaultModel { RequiredCustodians = 1 };
+    private string selectedState = "";
+    private string activeSection = "details";
+
+
+    private bool IsFormValid =>
+        !string.IsNullOrEmpty(newVault.Name) &&
+        !string.IsNullOrEmpty(newVault.Branch) &&
+        !string.IsNullOrEmpty(newVault.ControllerID) &&
+        !string.IsNullOrEmpty(newVault.ControllerIP);
+
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrEmpty(Section))
+        {
+            activeSection = Section.ToLower();
+        }
+
+        if (!string.IsNullOrEmpty(Branch))
+        {
+            newVault.Branch = Branch;
+            newVault.Status = VaultStatus.Pending;
+        }
+    }
+
+    private void Cancel() => NavigationManager.NavigateTo("/vaults");
+    private void SubmitForApproval() => showApprovalModal = true;
+
+    private async Task ConfirmSubmission()
+    {
+        newVault.Status = VaultStatus.Pending;
+        await VaultService.AddVault(newVault);
+        NavigationManager.NavigateTo("/vaults");
+    }
+
+    private void CancelSubmission() => showApprovalModal = false;
+
+    private void NavigateToSection(string section)
+    {
+        activeSection = section;
+        if (string.IsNullOrEmpty(Branch))
+        {
+            NavigationManager.NavigateTo($"/vaults/add/section/{section}");
+        }
+        else
+        {
+            NavigationManager.NavigateTo($"/vaults/add/branch/{Branch}/section/{section}");
+        }
+    }
+
+    private string GetTabClass(string section)
+    {
+        return activeSection == section ? "tab-btn active" : "tab-btn";
+    }
+
+    private List<string> availableStates = new List<string>
+    {
+        "Johor",
+        "Kuala Lumpur",
+        "Penang",
+        "Sabah/Sarawak",
+        "Terengganu"
+    };
+
+    private Dictionary<string, List<string>> stateBranches = new Dictionary<string, List<string>>
+    {
+        { "Johor", new List<string> { "JB Central", "JB North", "JB South" } },
+        { "Kuala Lumpur", new List<string> { "KL Main", "KL East", "KL West" } },
+        { "Penang", new List<string> { "Penang Main", "Penang Island" } },
+        { "Sabah/Sarawak", new List<string> { "KK Main", "Kuching Central" } },
+        { "Terengganu", new List<string> { "KT Main" } }
+    };
+
+    private IEnumerable<string> filteredBranches =>
+        string.IsNullOrEmpty(selectedState) ?
+        new List<string>() :
+        stateBranches[selectedState];
+}
+
+<style>
+    .vault-edit-container {
+        max-width: 1200px;
+        margin: 2rem auto;
+        padding: 2rem;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .edit-header {
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #eee;
+    }
+
+    .edit-content {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 2rem;
+    }
+
+    .vault-details, .unlock-rules, .access-control {
+        padding-right: 2rem;
+        border-right: 1px solid #eee;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+        position: relative;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+    .edit-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid #eee;
+    }
+
+    .section-alert {
+        background-color: #fff8e1;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+
+    .edit-tabs {
+        display: flex;
+        border-bottom: 1px solid #ddd;
+        margin-bottom: 1.5rem;
+    }
+
+    .tab-btn {
+        padding: 0.75rem 1.5rem;
+        background: none;
+        border: none;
+        border-bottom: 3px solid transparent;
+        cursor: pointer;
+        font-weight: 500;
+        color: #666;
+    }
+
+        .tab-btn.active {
+            color: #0d6efd;
+            border-bottom-color: #0d6efd;
+        }
+
+        .tab-btn:hover:not(.active) {
+            background-color: #f8f9fa;
+        }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 15px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-primary {
+        background-color: #0d6efd;
+        color: white;
+    }
+
+        .btn-primary:hover:not(:disabled) {
+            background-color: #0b5ed7;
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+    .btn-outline-secondary {
+        background-color: transparent;
+        color: #6c757d;
+        border: 1px solid #6c757d;
+    }
+
+        .btn-outline-secondary:hover {
+            background-color: #f8f9fa;
+        }
+
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .approval-modal {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        max-width: 400px;
+        width: 100%;
+        text-align: center;
+    }
+
+        .approval-modal h4 {
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .approval-modal p {
+            margin-bottom: 2rem;
+            color: #666;
+        }
+
+    .modal-actions {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+    }
+
+    .btn-confirm {
+        background-color: #0d6efd;
+        color: white;
+    }
+
+        .btn-confirm:hover {
+            background-color: #0b5ed7;
+        }
+
+    .btn-back {
+        background-color: #f5f5f5;
+        color: #333;
+    }
+
+        .btn-back:hover {
+            background-color: #e0e0e0;
+        }
+
+    .section-header {
+        margin: 2rem 0 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #eee;
+    }
+</style>

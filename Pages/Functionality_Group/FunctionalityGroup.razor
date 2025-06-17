@@ -1,0 +1,428 @@
+﻿@page "/functionality-groups"
+@inject FunctionalityGroupService FunctionalityGroupService
+@inject IJSRuntime JSRuntime
+@using System.ComponentModel.DataAnnotations
+@using GEMS.Models
+@using System.Linq.Dynamic.Core
+@using Microsoft.JSInterop
+
+<!--<div class="container-fluid functionality-groups-container">-->
+    <div class="row mb-4">
+        <div class="col">
+            <h3 class="page-title  mb-0">
+                <i class="fas fa-users-cog me-2"></i>Functionality Groups
+            </h3>
+            @* <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Functionality Groups</li>
+                </ol>
+            </nav>*@
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">List of Functionality Group</h5>
+            <button @onclick="ShowCreateModal" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>Create New
+            </button>
+        </div>
+        <div class="card-body">
+            @if (groups == null)
+            {
+                <div class="d-flex justify-content-center my-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            }
+            else if (!groups.Any())
+            {
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>No functionality groups found.
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive border">
+                    <table class="table table-hover table-striped" id="groupsTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="sortable" @onclick="@(() => SortTable("Id"))">
+                                    ID @GetSortIcon("Id")
+                                </th>
+                                <th class="sortable" @onclick="@(() => SortTable("GroupName"))">
+                                    Group Name @GetSortIcon("GroupName")
+                                </th>
+                                <th>Permissions</th>
+                                <th>Status</th>
+                                <th style="width: 150px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var group in groups)
+                            {
+                                <tr>
+                                    <td>@group.Id</td>
+                                    <td>
+                                        <div class="fw-semibold">@group.GroupName</div>
+                                        @if (group.AssignedRole != null)
+                                        {
+                                            <small class="text-muted">Role: @group.AssignedRole</small>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (group.Permissions.Any())
+                                        {
+                                            <div class="d-flex flex-wrap gap-1">
+                                                @foreach (var perm in group.Permissions)
+                                                {
+                                                    <span class="badge bg-primary">
+                                                        @GetPermissionDisplayName(perm)
+                                                    </span>
+                                                }
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">No permissions assigned</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="badge @GetStatusBadgeClass(group.Status)">
+                                            @group.Status
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button @onclick="@(() => ShowEditModal(group.Id))"
+                                            class="btn btn-outline-primary"
+                                            title="Edit">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button @onclick="@(() => DeleteGroup(group.Id))"
+                                            class="btn btn-outline-danger"
+                                            title="Delete">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                            @*@if (group.Status == "Draft")
+                                            {
+                                                <button @onclick="@(() => SubmitForApproval(group.Id))"
+                                                class="btn btn-outline-info"
+                                                title="Submit for Approval">
+                                                    <i class="fas fa-paper-plane"></i>
+                                                </button>
+                                            }*@
+                                            
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+<!--</div>-->
+
+<!-- Modal Dialog -->
+@if (showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color:rgba(0,0,0,0.5)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="fas @(editId == 0 ? "fa-plus-circle" : "fa-edit") me-2"></i>
+                        @(editId == 0 ? "Create" : "Edit") Functionality Group
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseModal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="@CurrentGroup" OnValidSubmit="@HandleValidSubmit">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label class="form-label">Group Name <span class="text-danger">*</span></label>
+                            <InputText @bind-Value="CurrentGroup.GroupName" class="form-control" />
+                            <ValidationMessage For="@(() => CurrentGroup.GroupName)" class="text-danger" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Permissions</label>
+                            <div class="card permissions-card">
+                                <div class="card-body">
+                                    <div class="row">
+                                        @foreach (var permission in AllPermissions)
+                                        {
+                                            <div class="col-md-6 mb-2">
+                                                <div class="form-check">
+                                                    <input type="checkbox"
+                                                    class="form-check-input"
+                                                    id="perm_@permission"
+                                                    checked="@CurrentGroup.Permissions.Contains(permission)"
+                                                    @onchange="@(e => TogglePermission(permission, (bool)e.Value))" />
+                                                    <label class="form-check-label" for="perm_@permission">
+                                                        @GetPermissionDisplayName(permission)
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseModal">
+                                <i class="fas fa-times me-2"></i>Cancel
+                            </button>
+                            <button type="submit" class="btn btn-primary" disabled="@(!IsFormValid())">
+                                <i class="fas fa-save me-2"></i>@(editId == 0 ? "Save Draft" : "Save")
+                            </button>
+                            @*@if (editId == 0)
+                            {*@
+                                <button type="button" class="btn btn-info" disabled="@(!IsFormValid())"
+                                @onclick="CreateAndSubmit">
+                                    <i class="fas fa-paper-plane me-2"></i>Submit
+                                </button>
+                           @* }*@
+                        </div>
+
+                       @* <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseModal">
+                                Cancel
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                @(editId == 0 ? "Create Draft" : "Save Changes")
+                            </button>
+                            @if (editId == 0)
+                            {
+                                <button type="button" class="btn btn-info" @onclick="CreateAndSubmit">
+                                    <i class="fas fa-paper-plane me-1"></i> Submit
+                                </button>
+                            }
+                        </div>*@
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private List<FunctionalityGroupModel>? groups;
+    private List<FunctionalityGroupModel>? originalGroups;
+    private bool showModal = false;
+    private int editId = 0;
+    private FunctionalityGroupModel CurrentGroup { get; set; } = new();
+    // private List<Permission> AllPermissions { get; set; } = Enum.GetValues<Permission>().ToList();
+    private string sortColumn = "Id";
+    private string sortDirection = "ASC";
+
+    private List<string> AllPermissions { get; set; } = new()
+    {
+        "AddUsers",
+        "UpdateUsers",
+        "DeleteUsers",
+        "AddVaults",
+        "UpdateVaults",
+        "DeleteVaults",
+        "ApproveRegistrations",
+        "ApproveVaultAssignments",
+        "SetUnlockRules",
+        "AssignCustodians"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGroups();
+    }
+
+
+    private async Task LoadGroups()
+    {
+        originalGroups = await FunctionalityGroupService.GetAllGroupsAsync();
+        groups = originalGroups?.ToList();
+        SortTable(sortColumn, false);
+    }
+
+    private void ShowCreateModal()
+    {
+        editId = 0;
+        CurrentGroup = new FunctionalityGroupModel { Permissions = new List<string>(), Status = "Draft" };
+        showModal = true;
+    }
+
+    private async Task ShowEditModal(int id)
+    {
+        editId = id;
+        var group = await FunctionalityGroupService.GetGroupByIdAsync(id);
+        CurrentGroup = group ?? new FunctionalityGroupModel();
+        showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+    }
+
+        private async Task HandleValidSubmit()
+        {
+            if (!IsFormValid())
+            {
+    await JSRuntime.InvokeVoidAsync("alert", "Please fill in the Group Name");
+    return;
+            }
+
+            if (editId == 0)
+            {
+    await FunctionalityGroupService.AddGroupAsync(CurrentGroup);
+            }
+            else
+            {
+    await FunctionalityGroupService.UpdateGroupAsync(CurrentGroup);
+            }
+
+            await LoadGroups();
+            showModal = false;
+
+        /*if (editId == 0)
+        {
+            await FunctionalityGroupService.AddGroupAsync(CurrentGroup);
+        }
+        else
+        {
+            await FunctionalityGroupService.UpdateGroupAsync(CurrentGroup);
+        }
+
+        showModal = false;
+        await LoadGroups();*/
+    }
+
+    private void TogglePermission(string permission, bool isChecked)
+    {
+        if (isChecked)
+        {
+            if (!CurrentGroup.Permissions.Contains(permission))
+                CurrentGroup.Permissions.Add(permission);
+        }
+        else
+        {
+            CurrentGroup.Permissions.Remove(permission);
+        }
+    }
+
+    private async Task DeleteGroup(int id)
+    {
+        bool confirm = await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this functionality group?");
+        if (confirm)
+        {
+            await FunctionalityGroupService.DeleteGroupAsync(id);
+            await LoadGroups();
+        }
+    }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Approved" => "bg-success",
+            "Pending Approval" => "bg-warning text-dark",
+            "Draft" => "bg-secondary",
+            _ => "bg-info"
+        };
+    }
+
+    private string GetPermissionDisplayName(string permission)
+    {
+        return permission switch
+        {
+            "AddUsers" => "Add Users",
+            "UpdateUsers" => "Update Users",
+            "DeleteUsers" => "Delete Users",
+            "AddVaults" => "Add Vaults",
+            "UpdateVaults" => "Update Vaults",
+            "DeleteVaults" => "Delete Vaults",
+            "ApproveRegistrations" => "Approve/Reject User Registrations",
+            "ApproveVaultAssignments" => "Approve/Reject Vault Assignments",
+            "SetUnlockRules" => "Set Unlock Rules",
+            "AssignCustodians" => "Assign Custodians",
+            _ => permission
+        };
+    }
+
+
+    /*private string GetPermissionDisplayName(string permission)
+    {
+        var fieldInfo = permission.GetType().GetField(permission.ToString());
+        var attributes = fieldInfo?.GetCustomAttributes(typeof(DisplayAttribute), false)
+        as DisplayAttribute[];
+        return attributes?.Length > 0 ? attributes[0].Name : permission.ToString();
+    }*/
+
+    private void SortTable(string column, bool changeDirection = true)
+    {
+        if (groups == null || !groups.Any()) return;
+
+        if (changeDirection)
+        {
+            if (sortColumn == column)
+            {
+                sortDirection = sortDirection == "ASC" ? "DESC" : "ASC";
+            }
+            else
+            {
+                sortColumn = column;
+                sortDirection = "ASC";
+            }
+        }
+
+        groups = originalGroups?.AsQueryable()
+            .OrderBy($"{sortColumn} {sortDirection}")
+            .ToList();
+    }
+
+    private MarkupString GetSortIcon(string column)
+    {
+        if (sortColumn != column) return new MarkupString("");
+
+        return sortDirection == "ASC"
+            ? new MarkupString("<i class='fas fa-sort-up'></i>")
+            : new MarkupString("<i class='fas fa-sort-down'></i>");
+    }
+    
+    private async Task SubmitForApproval(int id)
+    {
+        bool confirm = await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to submit this for approval?");
+        if (confirm)
+        {
+            await FunctionalityGroupService.SubmitForApprovalAsync(id);
+            await LoadGroups();
+        }
+    }
+
+        private bool IsFormValid()
+        {
+            return !string.IsNullOrWhiteSpace(CurrentGroup.GroupName) && CurrentGroup.GroupName.Length <= 50;
+        }
+
+    private async Task CreateAndSubmit()
+    {
+        if (!IsFormValid())
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Please fill in the Group Name before submitting");
+            return;
+        }
+
+        CurrentGroup.Status = "Pending Approval";
+        await FunctionalityGroupService.AddGroupAsync(CurrentGroup);
+        await LoadGroups();
+        showModal = false;
+    }
+
+}

@@ -109,3 +109,26 @@
     color: #6c757d;
     font-size: 0.85rem;
 }
+
+.disabled-field {
+    background-color: #f8f9fa;
+    cursor: not-allowed;
+    color: #495057;
+    border-color: #dee2e6;
+    opacity: 1; /* Ensure full visibility */
+}
+
+/* Add to your CSS */
+.permissions-card .form-check-label {
+    font-weight: 500;
+}
+
+.permissions-card .form-check-input:checked {
+    border-width: 2px;
+}
+
+.default-permission {
+    background-color: #e9f5ff;
+    border-left: 3px solid #0d6efd;
+    padding-left: 10px;
+}

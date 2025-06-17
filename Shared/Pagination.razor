@@ -1,0 +1,105 @@
+﻿@using GEMS.Models
+
+<div class="p-xl-2">
+    <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-end">
+            @foreach (var pageItem in pageItems)
+            {
+                <li @onclick="@(() => SelectCurrentPage(pageItem))"
+                    style="cursor:pointer"
+                    class="page-item
+                    @(pageItem.Active ? "active" : null)
+                    @(pageItem.Enabled ? null : "disabled")"
+                    aria-current="@(pageItem.Active ? "page" : null)">
+
+                    <span class="page-link">
+                        @pageItem.Text
+                        @if (pageItem.Active)
+                        {
+                            <span class="sr-only">(current)</span>
+                        }
+                    </span>
+                </li>
+            }
+        </ul>
+    </nav>
+</div>
+
+@code {
+    private List<PageItem> pageItems = new();
+
+    [Parameter]
+    public int PageIndex { get; set; } = 1;
+
+    [Parameter]
+    public int TotalPages { get; set; }
+
+    [Parameter]
+    public int Radius { get; set; } = 3;
+
+    [Parameter]
+    public EventCallback<int> OnSelectedPage { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        CreatePages();
+    }
+
+    private void CreatePages()
+    {
+        pageItems.Clear();
+
+        if (TotalPages <= 0) return;
+
+        // Previous button
+        var hasPreviousPage = PageIndex > 1;
+        pageItems.Add(new PageItem(PageIndex - 1, hasPreviousPage, "Previous"));
+
+        // Always show first page
+        if (PageIndex - Radius > 1)
+        {
+            pageItems.Add(new PageItem(1, true, "1"));
+            if (PageIndex - Radius > 2)
+            {
+                pageItems.Add(new PageItem(0, false, "..."));
+            }
+        }
+
+        // Middle pages
+        int start = Math.Max(1, PageIndex - Radius);
+        int end = Math.Min(TotalPages, PageIndex + Radius);
+
+        for (int i = start; i <= end; i++)
+        {
+            pageItems.Add(new PageItem(i, true, i.ToString())
+                {
+                    Active = PageIndex == i
+                });
+        }
+
+        // Always show last page
+        if (PageIndex + Radius < TotalPages)
+        {
+            if (PageIndex + Radius < TotalPages - 1)
+            {
+                pageItems.Add(new PageItem(0, false, "..."));
+            }
+            pageItems.Add(new PageItem(TotalPages, true, TotalPages.ToString()));
+        }
+
+        // Next button
+        var hasNextPage = PageIndex < TotalPages;
+        pageItems.Add(new PageItem(PageIndex + 1, hasNextPage, "Next"));
+    }
+
+    private async Task SelectCurrentPage(PageItem pageItem)
+    {
+        if (PageIndex == pageItem.PageIndex || !pageItem.Enabled || pageItem.PageIndex < 1 || pageItem.PageIndex > TotalPages)
+        {
+            return;
+        }
+
+        PageIndex = pageItem.PageIndex;
+        await OnSelectedPage.InvokeAsync(pageItem.PageIndex);
+    }
+}

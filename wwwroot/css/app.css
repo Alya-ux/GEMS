@@ -150,11 +150,13 @@ code {
 
 
 .text {
-    font-size: 30px;
+    font-size: 13.5px;
     color: #c7c7c7;
     font-weight: 600;
-    letter-spacing: 2px;
+    letter-spacing: 1.5px;
     text-align: center;
+    line-height:1.4;
+    margin-bottom: 1.7rem;
 }
 
 .field {
@@ -256,13 +258,14 @@ code {
             text-decoration: underline;
         }
 
-.error-message {
+/*.error-message {
     color: #ff6666;
     margin-top: 20px;
     margin-bottom: 10px;
     text-align: center;
     font-weight: 500;
-}
+    font-size: 13px;
+}*/
 .info-message {
     margin: 15px 0;
     color: #339933;
@@ -273,6 +276,8 @@ code {
     margin: 15px 0;
     color: #ff4c4c;
     font-weight: 500;
+    font-size: 13px;
+    text-align: center;
 }
 
 
@@ -282,4 +287,3 @@ code {
         padding: 30px 20px;
     }
 }
-

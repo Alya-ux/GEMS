@@ -1,0 +1,65 @@
+﻿@page "/notifications"
+@using GEMS.Models
+@inject IJSRuntime JSRuntime
+@inject NotificationService NotificationService
+
+<h3>All Notifications</h3>
+
+@if (notifications.Count == 0)
+{
+    <p>No notifications found</p>
+}
+else
+{
+    <div class="list-group">
+        @foreach (var notification in notifications.OrderByDescending(n => n.CreatedAt))
+        {
+            <a href="/notifications/@notification.Id" class="list-group-item list-group-item-action @(notification.IsRead ? "" : "list-group-item-primary")">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">@notification.Title</h5>
+                    <small>@FormatTimeAgo(notification.CreatedAt)</small>
+                </div>
+                <p class="mb-1">@notification.Message</p>
+                @if (!notification.IsRead)
+                {
+                    <span class="badge bg-primary">New</span>
+                }
+            </a>
+        }
+    </div>
+}
+
+@code {
+    private List<Notification> notifications = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var email = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "userEmail");
+        var role = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "userRole");
+        notifications = await NotificationService.GetNotificationsForUserAsync(email, role);
+    }
+
+    private string FormatTimeAgo(DateTime date)
+    {
+        var timeSpan = DateTime.Now - date;
+
+        if (timeSpan <= TimeSpan.FromSeconds(60))
+        {
+            return $"{timeSpan.Seconds} seconds ago";
+        }
+        else if (timeSpan <= TimeSpan.FromMinutes(60))
+        {
+            return $"{timeSpan.Minutes} minutes ago";
+        }
+        else if (timeSpan <= TimeSpan.FromHours(24))
+        {
+            return $"{timeSpan.Hours} hours ago";
+        }
+        else if (timeSpan <= TimeSpan.FromDays(30))
+        {
+            return $"{timeSpan.Days} days ago";
+        }
+
+        return date.ToString("MMM dd, yyyy");
+    }
+}

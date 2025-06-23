@@ -78,6 +78,7 @@
             errorMessage = null;
             await JSRuntime.InvokeVoidAsync("localStorage.setItem", "userRole", foundUser.Role);
             await JSRuntime.InvokeVoidAsync("localStorage.setItem", "userEmail", foundUser.Email);
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "UserId", foundUser.Id.ToString());
             NavigateToRoleDashboard(foundUser.Role);
         }
         else
@@ -121,6 +122,7 @@
 
     public class User
     {
+        public int Id { get; set; }
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;

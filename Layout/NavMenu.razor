@@ -63,13 +63,32 @@
                 </div>
             }
             
+        }
 
+        @if (IsAdmin1 || IsAdmin2 || IsVaultAuditor)
+        {
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="reports">
-                    <span class="bi bi-file-earmark-bar-graph-fill-nav-menu" aria-hidden="true"></span> Reports
-                </NavLink>
+                <div class="nav-link dropdown-toggle" @onclick="ToggleReportManagement">
+                    <span class="bi bi-file-earmark-text-fill-nav-menu" aria-hidden="true"></span>
+                    <span>Reports</span>
+                </div>
+                @if (showReportManagement)
+                {
+                    <div class="dropdown-submenu">
+                        <NavLink class="nav-link submenu-item" href="">
+                            <span class="bi bi-clock-fill-nav-menu" aria-hidden="true"></span> History & Logs
+                        </NavLink>
+                        <NavLink class="nav-link submenu-item" href="">
+                            <span class="bi bi-file-earmark-ruled-fill-nav-menu" aria-hidden="true"></span> Audit Trails
+                        </NavLink>
+                        <NavLink class="nav-link submenu-item" href="">
+                            <span class="bi bi-file-earmark-bar-graph-fill-nav-menu" aria-hidden="true"></span> Statistical
+                        </NavLink>
+                    </div>
+                }
             </div>
         }
+
 
         @if (IsAdmin1)
         {
@@ -109,6 +128,7 @@
 @code {
     private bool collapseNavMenu = true;
     private bool showUserManagement = false;
+    private bool showReportManagement = false;
     private string? userRole;
     protected bool IsAdmin1 => userRole == UserRolesModel.Admin1;
     protected bool IsAdmin2 => userRole == UserRolesModel.Admin2;
@@ -130,6 +150,11 @@
     private void ToggleUserManagement()
     {
         showUserManagement = !showUserManagement;
+    }
+
+    private void ToggleReportManagement()
+    {
+        showReportManagement = !showReportManagement;
     }
 
     private async Task Logout()

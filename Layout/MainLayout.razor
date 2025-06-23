@@ -1,7 +1,9 @@
-﻿@inherits LayoutComponentBase
+﻿@using GEMS.Models
+@inherits LayoutComponentBase
 @inject ProfilePictureService ProfilePictureService
 @inject IJSRuntime JSRuntime
 @inject NavigationManager Navigation
+@inject NotificationService NotificationService
 
 <div class="page" @onclick="CloseDropdowns">
     <div class="sidebar">
@@ -17,7 +19,63 @@
             <!-- Icons + Profile -->
             <div class="d-flex align-items-center gap-3">
                 <!-- Notification Icon -->
-                <i class="fas fa-bell"></i>
+                @*<i class="fas fa-bell"></i>*@
+                <div class="notification-container position-relative" @onclick:stopPropagation>
+                    <button class="btn btn-link p-0 position-relative" @onclick="ToggleNotificationDropdown">
+                        <i class="fas fa-bell fs-5"></i>
+                        @if (unreadCount > 0)
+                        {
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                @unreadCount
+                                <span class="visually-hidden">unread notifications</span>
+                            </span>
+                        }
+                    </button>
+
+                    @if (showNotificationDropdown)
+                    {
+                        <div class="notification-dropdown-menu shadow">
+                            <div class="notification-header d-flex justify-content-between align-items-center p-3 border-bottom">
+                                <h6 class="mb-0">Notifications (@unreadCount)</h6>
+                                @if (unreadCount > 0)
+                                {
+                                    <button class="btn btn-sm btn-link p-0" @onclick="MarkAllAsRead">Mark all as read</button>
+                                }
+                            </div>
+
+                            <div class="notification-list" style="max-height: 400px; overflow-y: auto;">
+                                @if (notifications.Count == 0)
+                                {
+                                    <div class="p-3 text-center text-muted">No notifications</div>
+                                }
+                                else
+                                {
+                                    @foreach (var notification in notifications.OrderByDescending(n => n.CreatedAt))
+                                    {
+                                        <div class="notification-item p-3 border-bottom @(notification.IsRead ? "" : "bg-light")"
+                                             @onclick="() => OnNotificationClick(notification)">
+                                            <a href="/notifications/@notification.Id" class="text-decoration-none text-dark">
+                                                <div class="d-flex justify-content-between">
+                                                    <strong>@notification.Title</strong>
+                                                    <small class="text-muted">@FormatTimeAgo(notification.CreatedAt)</small>
+                                                </div>
+                                                <div class="notification-message">@notification.Message</div>
+                                                @if (!notification.IsRead)
+                                                {
+                                                    <span class="badge bg-primary">New</span>
+                                                }
+                                            </a>
+                                        </div>
+                                    }
+                                }
+                            </div>
+
+                            <div class="notification-footer p-2 border-top text-center">
+                                <a href="/notifications" class="text-decoration-none">View all notifications</a>
+                            </div>
+                        </div>
+                    }
+                </div>
 
                 <!-- Theme Toggle -->
                 <div class="theme-toggle" @onclick:stopPropagation>
@@ -44,19 +102,30 @@
 
                 <!-- Profile -->
                 <!-- Replace your entire profile section with this: -->
+                <!-- Profile Section -->
                 <div class="profile-container position-relative">
                     <div class="d-flex align-items-center gap-2" @onclick="ToggleProfileDropdown" @onclick:stopPropagation>
-                        <img src="@ProfilePictureService.ProfilePictureUrl" class="profile-picture" />
-                        <span>@userName <i class="fas fa-chevron-down"></i></span>
+                        <img src="@(currentUser?.ProfilePictureUrl ?? ProfilePictureService.ProfilePictureUrl)"
+                             class="profile-picture rounded-circle" />
+                        <span>
+                            @(currentUser?.Fullname ?? userName)
+                            <i class="fas fa-chevron-down"></i>
+                        </span>
                     </div>
 
                     <div class="@GetDropdownClass()" @onclick:stopPropagation>
-                        <a class="dropdown-item" href="/account/editprofile">
+                        <div class="dropdown-header px-3 py-2">
+                            <div class="fw-bold">@(currentUser?.Fullname)</div>
+                            <div class="small text-muted">@(currentUser?.Email)</div>
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item" href="/user-profile/@userId">
                             <i class="fas fa-user-edit me-2"></i>Edit Profile
                         </a>
                         <a class="dropdown-item" href="/changePassword">
                             <i class="fas fa-key me-2"></i>Change Password
                         </a>
+                        <div class="dropdown-divider"></div>
                         <a class="dropdown-item text-danger" @onclick="Logout" style="cursor: pointer;">
                             <i class="fas fa-sign-out-alt me-2"></i>Logout
                         </a>
@@ -116,6 +185,44 @@
         .dropdown-item:hover {
             background-color: var(--bs-tertiary-bg);
         }
+
+    /* Notification Styles */
+    .notification-container {
+        position: relative;
+        margin-right: 15px;
+    }
+
+    .notification-dropdown-menu {
+        position: absolute;
+        right: 0;
+        top: 100%;
+        width: 350px;
+        background-color: var(--bs-body-bg);
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.5rem;
+        z-index: 1050;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+
+    .notification-item {
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+        .notification-item:hover {
+            background-color: var(--bs-tertiary-bg) !important;
+        }
+
+    .notification-message {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-top: 4px;
+    }
+
+    .notification-footer a {
+        color: var(--bs-link-color);
+    }
 
     /* Theme Toggle Styles */
     .theme-toggle {
@@ -183,8 +290,13 @@
 </style>
 
 @code {
+    private int userId;
     private string? userName;
+    private UserModel? currentUser;
     private bool isProfileDropdownOpen = false;
+    private bool showNotificationDropdown = false;
+    private List<Notification> notifications = new();
+    private int unreadCount = 0;
     private bool showThemeDropdown = false;
     private string currentTheme = "light";
     private string GetDropdownClass()
@@ -196,11 +308,86 @@
 
     protected override async Task OnInitializedAsync()
     {
+        
+        var userIdString = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "UserId");
+        if (int.TryParse(userIdString, out var parsedId))
+        {
+            userId = parsedId;
+        }
+
         userName = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "userEmail");
         currentTheme = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "theme") ?? "auto";
         await ApplyTheme(currentTheme);
         ProfilePictureService.OnProfilePictureChanged += StateHasChanged;
+
+        // Load notifications when component initializes
+        await LoadNotifications();
     }
+
+    private string FormatTimeAgo(DateTime date)
+    {
+        var timeSpan = DateTime.Now - date;
+
+        if (timeSpan <= TimeSpan.FromSeconds(60))
+        {
+            return $"{timeSpan.Seconds} seconds ago";
+        }
+        else if (timeSpan <= TimeSpan.FromMinutes(60))
+        {
+            return $"{timeSpan.Minutes} minutes ago";
+        }
+        else if (timeSpan <= TimeSpan.FromHours(24))
+        {
+            return $"{timeSpan.Hours} hours ago";
+        }
+        else if (timeSpan <= TimeSpan.FromDays(30))
+        {
+            return $"{timeSpan.Days} days ago";
+        }
+
+        return date.ToString("MMM dd, yyyy");
+    }
+
+    private async Task LoadNotifications()
+    {
+        var email = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "userEmail");
+        var role = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "userRole");
+        notifications = await NotificationService.GetNotificationsForUserAsync(email, role);
+        unreadCount = await NotificationService.GetUnreadNotificationCountAsync(email, role);
+        StateHasChanged();
+    }
+
+    private void ToggleNotificationDropdown()
+    {
+        showNotificationDropdown = !showNotificationDropdown;
+        isProfileDropdownOpen = false;
+        showThemeDropdown = false;
+
+        if (showNotificationDropdown)
+        {
+            LoadNotifications();
+        }
+    }
+
+    private async Task OnNotificationClick(Notification notification)
+    {
+        if (!notification.IsRead)
+        {
+            await NotificationService.MarkNotificationAsRead(notification.Id);
+            unreadCount--;
+        }
+
+        Navigation.NavigateTo(notification.ActionLink ?? "/");
+        showNotificationDropdown = false;
+    }
+
+    private async Task MarkAllAsRead()
+    {
+        await NotificationService.MarkAllNotificationsAsRead();
+        unreadCount = 0;
+        await LoadNotifications();
+    }
+
 
     private void ToggleProfileDropdown()
     {

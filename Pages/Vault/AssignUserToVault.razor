@@ -190,7 +190,7 @@
 @code {
     private bool isLoading = true;
     private string searchTerm = string.Empty;
-    private List<User> selectedUsers = new();
+    private List<UserModel> selectedUsers = new();
     private string selectedBranch = string.Empty;
     private int selectedVaultId;
     private VaultModel? selectedVault;
@@ -201,7 +201,7 @@
     private TimeOnly startTime = new(8, 0); // Default 08:00
     private TimeOnly endTime = new(17, 0); // Default 17:00
 
-    private List<User> allUsers = new();
+    private List<UserModel> allUsers = new();
     private List<VaultModel> availableVaults = new();
     private List<AssignmentModel> assignedUsers = new();
     private List<string> availableBranches = new();
@@ -212,7 +212,7 @@
 
     //private bool CanSave => selectedUsers.Any() && selectedVault != null;
 
-    private IEnumerable<User> filteredCustodians = new List<User>();
+    private IEnumerable<UserModel> filteredCustodians = new List<UserModel>();
 
     protected override async Task OnInitializedAsync()
     {
@@ -242,7 +242,7 @@
             .OrderBy(u => u.Fullname);
     }
 
-    private void ToggleUserSelection(ChangeEventArgs e, User user)
+    private void ToggleUserSelection(ChangeEventArgs e, UserModel user)
     {
         var isChecked = (bool)e.Value;
         if (isChecked)

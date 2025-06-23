@@ -16,5 +16,6 @@ namespace GEMS.Services
         Task<List<AssignmentModel>> GetAssignedUsersAsync(int vaultId);
         Task AssignUserToVaultAsync(AssignmentModel assignment);
         Task RemoveAssignmentAsync(int assignmentId);
+        Task<VaultModel> GetVaultByIdAsync(int id);
     }
 }

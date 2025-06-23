@@ -1,5 +1,6 @@
 ﻿@page "/admin/approvals"
 @layout MainLayout
+@using GEMS.Models
 @inject GEMS.Services.UserServices UserServices
 @inject NavigationManager Navigation
 
@@ -69,7 +70,7 @@
 </div>
 
 @code {
-    private List<GEMS.Services.PendingUser>? pendingUsers;
+    private List<GEMS.Models.PendingUser>? pendingUsers;
 
     protected override void OnInitialized()
     {

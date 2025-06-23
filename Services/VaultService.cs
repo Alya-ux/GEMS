@@ -92,5 +92,11 @@ namespace GEMS.Services
             _assignments.RemoveAll(a => a.Id == assignmentId);
             return Task.CompletedTask;
         }
+
+        // In VaultService.cs
+        public async Task<VaultModel?> GetVaultByIdAsync(int id)
+        {
+            return await Task.FromResult(_vaults.FirstOrDefault(v => v.Id == id));
+        }
     }
 }

@@ -1,0 +1,233 @@
+﻿@page "/notifications/{id:int}"
+@using GEMS.Models
+@inject IJSRuntime JSRuntime
+@inject NotificationService NotificationService
+@inject IVaultService VaultService
+@inject UserServices UserServices
+@inject NavigationManager Navigation
+
+
+<div class="container mt-4">
+    @if (notification == null)
+    {
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading notification details...</p>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4>@notification.Title</h4>
+                <small>@FormatTimeAgo(notification.CreatedAt)</small>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h5>Request Details</h5>
+                        <dl class="row">
+                            <dt class="col-sm-4">Request Type:</dt>
+                            <dd class="col-sm-8">@notification.Type</dd>
+
+                            <dt class="col-sm-4">Submitted:</dt>
+                            <dd class="col-sm-8">@notification.CreatedAt.ToString("f")</dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        @if (notification.Type == NotificationType.UserApproval && relatedUser != null)
+                        {
+                            <h5>User Information</h5>
+                            <dl class="row">
+                                <dt class="col-sm-4">Full Name:</dt>
+                                <dd class="col-sm-8">@relatedUser.Fullname</dd>
+
+                                <dt class="col-sm-4">Email:</dt>
+                                <dd class="col-sm-8">@relatedUser.Email</dd>
+
+                                <dt class="col-sm-4">Role:</dt>
+                                <dd class="col-sm-8">@relatedUser.Role</dd>
+
+                                <dt class="col-sm-4">Status:</dt>
+                                <dd class="col-sm-8">
+                                    <span class="badge @GetStatusBadgeClass(relatedUser)">
+                                        @GetUserStatus(relatedUser)
+                                    </span>
+                                </dd>
+                            </dl>
+                        }
+                        else if (notification.Type == NotificationType.VaultAssignment && relatedVault != null)
+                        {
+                            <h5>Vault Information</h5>
+                            <dl class="row">
+                                <dt class="col-sm-4">Vault Name:</dt>
+                                <dd class="col-sm-8">@relatedVault.Name</dd>
+
+                                <dt class="col-sm-4">Branch:</dt>
+                                <dd class="col-sm-8">@relatedVault.Branch</dd>
+
+                                <dt class="col-sm-4">Status:</dt>
+                                <dd class="col-sm-8">@relatedVault.Status</dd>
+                            </dl>
+                        }
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <h5>Description</h5>
+                    <div class="alert alert-info">
+                        @notification.Message
+                        @if (additionalDetails != null)
+                        {
+                            <div class="mt-2">
+                                @additionalDetails
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @if (notification.Type == NotificationType.UserApproval ||
+                notification.Type == NotificationType.VaultRegistration)
+                {
+                    <div class="d-flex justify-content-between border-top pt-3">
+                        <div>
+                            <button class="btn btn-success me-2" @onclick="Approve">
+                                <i class="fas fa-check me-1"></i> Approve
+                            </button>
+                            <button class="btn btn-danger me-2" @onclick="Reject">
+                                <i class="fas fa-times me-1"></i> Reject
+                            </button>
+                        </div>
+                        <button class="btn btn-outline-secondary" @onclick="NavigateBack">
+                            <i class="fas fa-arrow-left me-1"></i> Back to Notifications
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Notification? notification;
+    private UserModel? relatedUser;
+    private VaultModel? relatedVault;
+    private string? additionalDetails;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            notification = await NotificationService.GetNotificationByIdAsync(Id);
+
+            if (notification == null)
+            {
+                var email = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "userEmail");
+                var role = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "userRole");
+                var notifications = await NotificationService.GetNotificationsForUserAsync(email, role);
+                notification = notifications.FirstOrDefault(n => n.Id == Id);
+            }
+
+            if (notification != null)
+            {
+                if (!notification.IsRead)
+                {
+                    await NotificationService.MarkNotificationAsRead(notification.Id);
+                }
+
+                // Load additional details based on notification type
+                if (notification.Type == NotificationType.UserApproval && notification.RelatedUserId.HasValue)
+                {
+                    relatedUser = await UserServices.GetUserByIdAsync(notification.RelatedUserId.Value);
+                    additionalDetails = $"Please review this user registration request for role: {relatedUser?.Role}";
+                }
+                else if (notification.Type == NotificationType.VaultAssignment && notification.RelatedVaultId.HasValue)
+                {
+                    relatedVault = await VaultService.GetVaultByIdAsync(notification.RelatedVaultId.Value);
+                    additionalDetails = $"Assignment request for vault {relatedVault?.Name} at {relatedVault?.Branch} branch";
+                }
+                else if (notification.Type == NotificationType.VaultRegistration && notification.RelatedVaultId.HasValue)
+                {
+                    relatedVault = await VaultService.GetVaultByIdAsync(notification.RelatedVaultId.Value);
+                    additionalDetails = $"New vault registration requires approval: {relatedVault?.Name} at {relatedVault?.Branch}";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading notification: {ex.Message}");
+        }
+    }
+
+    private string GetUserStatus(UserModel user)
+    {
+        if (user.IsApproved == true) return "Approved";
+        if (user.IsApproved == false) return "Rejected";
+        return "Pending Approval";
+    }
+
+    private string GetStatusBadgeClass(UserModel user)
+    {
+        if (user.IsApproved == true) return "bg-success";
+        if (user.IsApproved == false) return "bg-danger";
+        return "bg-warning";
+    }
+
+    private async Task Approve()
+    {
+        if (notification == null) return;
+
+        if (notification.Type == NotificationType.UserApproval && relatedUser != null)
+        {
+            await UserServices.ApproveUser(relatedUser.Id); // Now properly awaited
+        }
+
+        Navigation.NavigateTo("/notifications");
+    }
+
+    private async Task Reject()
+    {
+        if (notification == null) return;
+
+        if (notification.Type == NotificationType.UserApproval && relatedUser != null)
+        {
+            await UserServices.RejectUser(relatedUser.Id); // Now properly awaited
+        }
+
+        Navigation.NavigateTo("/notifications");
+    }
+
+    private void NavigateBack()
+    {
+        Navigation.NavigateTo("/notifications");
+    }
+
+    private string FormatTimeAgo(DateTime date)
+    {
+        var timeSpan = DateTime.Now - date;
+
+        if (timeSpan <= TimeSpan.FromSeconds(60))
+        {
+            return $"{timeSpan.Seconds} seconds ago";
+        }
+        else if (timeSpan <= TimeSpan.FromMinutes(60))
+        {
+            return $"{timeSpan.Minutes} minutes ago";
+        }
+        else if (timeSpan <= TimeSpan.FromHours(24))
+        {
+            return $"{timeSpan.Hours} hours ago";
+        }
+        else if (timeSpan <= TimeSpan.FromDays(30))
+        {
+            return $"{timeSpan.Days} days ago";
+        }
+
+        return date.ToString("MMM dd, yyyy");
+    }
+}

@@ -14,5 +14,7 @@ builder.Services.AddScoped<UserServices>();
 builder.Services.AddScoped<FunctionalityGroupService>();
 builder.Services.AddScoped<UserRolesService>();
 builder.Services.AddScoped<IVaultService, VaultService>();
+builder.Services.AddScoped<NotificationService>();
+
 
 await builder.Build().RunAsync();

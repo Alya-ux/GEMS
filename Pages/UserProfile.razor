@@ -1,0 +1,448 @@
+﻿@page "/user-profile/{UserId:int}"
+@inject UserServices UserService
+@inject IVaultService VaultService
+@inject FunctionalityGroupService GroupService
+@inject ProfilePictureService ProfilePictureService
+@inject NavigationManager NavigationManager
+
+        @if (user != null)
+        {
+            <div class="user-profile-container">
+                <!-- Header Section -->
+                <div class="profile-header">
+                    <h3>USER PROFILE: @user.Fullname.ToUpper()</h3>
+                </div>
+
+                <!-- Profile Picture and Basic Info -->
+                <div class="profile-section">
+                    <div class="profile-picture-container">
+                        <img src="@ProfilePictureService.ProfilePictureUrl" 
+                             alt="Profile Picture" 
+                             class="profile-picture"
+                             @onclick="() => ToggleProfilePictureZoom()" />
+                        <div class="profile-meta">
+                            <div><strong>Role:</strong> @user.Role</div>
+                            <div>
+                                <strong>Status:</strong> 
+                                <span class="status-badge @GetStatusClass(user.IsActive, user.IsApproved)">
+                                    @GetStatusText(user.IsActive, user.IsApproved)
+                                </span>
+                            </div>
+                            <div><strong>Branch:</strong> @(user.Branch ?? "Not assigned")</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Personal Details -->
+                <div class="profile-section">
+                    <h4>Personal Details</h4>
+                    <div class="details-grid">
+                        <div><strong>Full Name:</strong> @user.Fullname</div>
+                        <div><strong>Email:</strong> @user.Email</div>
+                        <div><strong>Contact:</strong> @(user.ContactNumber ?? "Not provided")</div>
+                        <div><strong>Last Login:</strong> @(user.LastLogin?.ToString("dd/MM/yyyy HH:mm") ?? "Never logged in")</div>
+                    </div>
+                </div>
+
+                <!-- Vault Access Section -->
+                <div class="profile-section">
+                    <div class="section-header">
+                        <h4>VAULT ACCESS (@userVaults.Count)</h4>
+                        @if (IsAdmin)
+                        {
+                            <button class="btn btn-sm btn-primary" @onclick="ShowAddVaultAssignment">
+                                ADD NEW ASSIGNMENT
+                            </button>
+                        }
+                    </div>
+                    
+                    @if (userVaults.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table vault-access-table">
+                                <thead>
+                                    <tr>
+                                        <th>Vault Name</th>
+                                        <th>Access Window</th>
+                                        <th>Assigned By</th>
+                                        @if (IsAdmin)
+                                        {
+                                            <th>Actions</th>
+                                        }
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var vault in userVaults)
+                                    {
+                                        <tr>
+                                            <td>@vault.VaultName @(vault.IsEmergency ? "(Emergency)" : "")</td>
+                                            <td>@vault.AccessWindow</td>
+                                            <td>@vault.AssignedBy</td>
+                                            @if (IsAdmin)
+                                            {
+                                                <td>
+                                                    <button class="btn btn-sm btn-danger" 
+                                                            @onclick="() => RevokeVaultAccess(vault.Id)">
+                                                        REVOKE
+                                                    </button>
+                                                </td>
+                                            }
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-info">No vault assignments found.</div>
+                    }
+                </div>
+
+                <!-- Functionality Groups Section -->
+                <div class="profile-section">
+                    <div class="section-header">
+                        <h4>FUNCTIONALITY GROUPS (@userGroups.Count)</h4>
+                        @if (IsAdmin)
+                        {
+                            <button class="btn btn-sm btn-primary" @onclick="ShowEditGroups">
+                                EDIT GROUPS
+                            </button>
+                        }
+                    </div>
+                    
+                    @if (userGroups.Any())
+                    {
+                        <div class="groups-container">
+                            @foreach (var group in userGroups)
+                            {
+                                <div class="group-card">
+                                    <h5>@group.GroupName</h5>
+                                    <ul>
+                                        @foreach (var permission in group.Permissions)
+                                        {
+                                            <li>@permission</li>
+                                        }
+                                        @if (!group.Permissions.Any())
+                                        {
+                                            <li>No special permissions</li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-info">No functionality groups assigned.</div>
+                    }
+                </div>
+            </div>
+
+            <!-- Add Vault Assignment Modal -->
+            @if (showAddVaultAssignment)
+            {
+                <div class="modal-backdrop show"></div>
+                <div class="modal show" style="display: block;">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Add Vault Assignment</h5>
+                                <button type="button" class="close" @onclick="CloseAddVaultAssignment">
+                                    <span>&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <label>Select Vault</label>
+                                    <select class="form-control" @bind="newAssignment.VaultId">
+                                        <option value="">-- Select Vault --</option>
+                                        @foreach (var vault in availableVaults)
+                                        {
+                                            <option value="@vault.Id">@vault.Name (@vault.Branch)</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Access Window</label>
+                                    <select class="form-control" @bind="newAssignment.AccessWindow">
+                                        <option value="Mon-Fri, 08:00-17:00">Standard (Mon-Fri, 08:00-17:00)</option>
+                                        <option value="24/7">24/7 (Emergency)</option>
+                                        <option value="Custom">Custom</option>
+                                    </select>
+                                </div>
+                                @if (newAssignment.AccessWindow == "Custom")
+                                {
+                                    <div class="form-group">
+                                        <label>Custom Access Window</label>
+                                        <input type="text" class="form-control" 
+                                               @bind="newAssignment.CustomAccessWindow" 
+                                               placeholder="e.g., Mon-Wed, 09:00-18:00" />
+                                    </div>
+                                }
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" 
+                                           @bind="newAssignment.IsEmergency" />
+                                    <label class="form-check-label">Emergency Access</label>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" @onclick="CloseAddVaultAssignment">
+                                    Cancel
+                                </button>
+                                <button type="button" class="btn btn-primary" @onclick="SaveVaultAssignment">
+                                    Save Assignment
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Edit Groups Modal -->
+            @if (showEditGroups)
+            {
+                <div class="modal-backdrop show"></div>
+                <div class="modal show" style="display: block;">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Edit Functionality Groups</h5>
+                                <button type="button" class="close" @onclick="CloseEditGroups">
+                                    <span>&times;</span>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="all-groups-container">
+                                    @foreach (var group in allGroups)
+                                    {
+                                        <div class="group-select-card @(userGroups.Any(g => g.Id == group.Id) ? "selected" : "")">
+                                            <div class="form-check">
+                                                <input type="checkbox" class="form-check-input" 
+                                                       checked="@userGroups.Any(g => g.Id == group.Id)"
+                                                       @onchange="(e) => ToggleGroupSelection(group, e.Value)" />
+                                                <label class="form-check-label">
+                                                    <strong>@group.GroupName</strong>
+                                                </label>
+                                            </div>
+                                            <ul>
+                                                @foreach (var permission in group.Permissions)
+                                                {
+                                                    <li>@permission</li>
+                                                }
+                                            </ul>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" @onclick="CloseEditGroups">
+                                    Cancel
+                                </button>
+                                <button type="button" class="btn btn-primary" @onclick="SaveGroupChanges">
+                                    Save Changes
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Zoomed Profile Picture Modal -->
+            @if (showZoomedPicture)
+            {
+                <div class="modal-backdrop show"></div>
+                <div class="modal show" style="display: block;">
+                    <div class="modal-dialog modal-sm">
+                        <div class="modal-content">
+                            <div class="modal-body text-center">
+                                <img src="@ProfilePictureService.ProfilePictureUrl" 
+                                     alt="Profile Picture" 
+                                     class="zoomed-profile-picture" />
+                            </div>
+                            <div class="modal-footer justify-content-center">
+                                <button type="button" class="btn btn-secondary" @onclick="ToggleProfilePictureZoom">
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="alert alert-danger">User not found.</div>
+            <div class="alert alert-warning">You must be logged in to view this page.</div>
+        }
+        
+
+@code {
+    [Parameter]
+    public int UserId { get; set; }
+
+    private UserModel? user;
+    private List<VaultAssignmentModel> userVaults = new();
+    private List<FunctionalityGroupModel> userGroups = new();
+    private List<FunctionalityGroupModel> allGroups = new();
+    private List<VaultModel> availableVaults = new();
+    private bool showAddVaultAssignment = false;
+    private bool showEditGroups = false;
+    private bool showZoomedPicture = false;
+    private AssignmentModel newAssignment = new();
+    private List<int> selectedGroupIds = new();
+
+    private bool IsAdmin => user?.Role == UserRolesModel.Admin1 || user?.Role == UserRolesModel.Admin2;
+
+    protected override async Task OnInitializedAsync()
+    {
+        user = await UserService.GetUserByIdAsync(UserId);
+        if (user != null)
+        {
+            await LoadUserData();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadUserData();
+    }
+
+    private async Task LoadUserData()
+    {  
+        if (user != null)
+        {
+            // Set profile picture from user model if available
+            if (!string.IsNullOrEmpty(user.ProfilePictureUrl))
+            {
+                ProfilePictureService.SetProfilePictureUrl(user.ProfilePictureUrl);
+            }
+
+            // Load user's vault assignments (simplified - in real app, use VaultService)
+            userVaults = new List<VaultAssignmentModel>
+            {
+                new VaultAssignmentModel { Id = 1, VaultName = "Vault_KL01", AccessWindow = "Mon-Fri, 08:00-17:00", AssignedBy = "Jane (Auditor)", IsEmergency = false },
+                new VaultAssignmentModel { Id = 2, VaultName = "Vault_KL02", AccessWindow = "24/7", AssignedBy = "Admin1", IsEmergency = true }
+            };
+
+            // Load user's functionality groups (simplified - in real app, use GroupService)
+            var allGroupsTemp = await GroupService.GetAllGroupsAsync();
+            userGroups = allGroupsTemp.Where(g => user.FunctionalityGroupIds.Contains(g.Id)).ToList();
+            allGroups = allGroupsTemp;
+
+            // Load available vaults for assignment
+            availableVaults = await VaultService.GetAvailableVaultsAsync(user.Branch);
+        }
+    }
+
+    private string GetStatusClass(bool isActive, bool? isApproved)
+    {
+        if (!isActive) return "inactive";
+        if (isApproved == null) return "pending";
+        if (isApproved == false) return "rejected";
+        return "active";
+    }
+
+    private string GetStatusText(bool isActive, bool? isApproved)
+    {
+        if (!isActive) return "❌ Inactive";
+        if (isApproved == null) return "⚠️ Pending";
+        if (isApproved == false) return "❌ Rejected";
+        return "✅ Active";
+    }
+
+    private void ToggleProfilePictureZoom()
+    {
+        showZoomedPicture = !showZoomedPicture;
+    }
+
+    private void ShowAddVaultAssignment()
+    {
+        newAssignment = new AssignmentModel { UserId = UserId };
+        showAddVaultAssignment = true;
+    }
+
+    private void CloseAddVaultAssignment()
+    {
+        showAddVaultAssignment = false;
+    }
+
+    private async Task SaveVaultAssignment()
+    {
+        // In a real app, save to backend via VaultService
+        var assignedBy = "Current User"; // Get from auth context
+        
+        userVaults.Add(new VaultAssignmentModel
+        {
+            Id = userVaults.Max(v => v.Id) + 1,
+            VaultName = availableVaults.First(v => v.Id == newAssignment.VaultId).Name,
+            AccessWindow = newAssignment.AccessWindow == "Custom" ? newAssignment.CustomAccessWindow : newAssignment.AccessWindow,
+            AssignedBy = assignedBy,
+            IsEmergency = newAssignment.IsEmergency
+        });
+
+        showAddVaultAssignment = false;
+        StateHasChanged();
+    }
+
+    private async Task RevokeVaultAccess(int assignmentId)
+    {
+        // In a real app, call VaultService.RemoveAssignmentAsync
+        var assignment = userVaults.FirstOrDefault(a => a.Id == assignmentId);
+        if (assignment != null)
+        {
+            userVaults.Remove(assignment);
+        }
+    }
+
+    private void ShowEditGroups()
+    {
+        selectedGroupIds = userGroups.Select(g => g.Id).ToList();
+        showEditGroups = true;
+    }
+
+    private void CloseEditGroups()
+    {
+        showEditGroups = false;
+    }
+
+    private void ToggleGroupSelection(FunctionalityGroupModel group, object isSelected)
+    {
+        var selected = (bool)isSelected;
+        if (selected && !selectedGroupIds.Contains(group.Id))
+        {
+            selectedGroupIds.Add(group.Id);
+        }
+        else if (!selected)
+        {
+            selectedGroupIds.Remove(group.Id);
+        }
+    }
+
+    private async Task SaveGroupChanges()
+    {
+        // In a real app, update user's groups in backend
+        userGroups = allGroups.Where(g => selectedGroupIds.Contains(g.Id)).ToList();
+        showEditGroups = false;
+        StateHasChanged();
+    }
+
+    // Model classes for the component
+    private class VaultAssignmentModel
+    {
+        public int Id { get; set; }
+        public string VaultName { get; set; } = string.Empty;
+        public string AccessWindow { get; set; } = string.Empty;
+        public string AssignedBy { get; set; } = string.Empty;
+        public bool IsEmergency { get; set; }
+    }
+
+    private class AssignmentModel
+    {
+        public int UserId { get; set; }
+        public int VaultId { get; set; }
+        public string AccessWindow { get; set; } = "Mon-Fri, 08:00-17:00";
+        public string CustomAccessWindow { get; set; } = string.Empty;
+        public bool IsEmergency { get; set; }
+    }
+}
